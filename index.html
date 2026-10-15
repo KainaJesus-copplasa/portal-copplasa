@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Portal de informações da Copplasa Corretora de Seguros. Acesso restrito.">
+<title>Portal Copplasa</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230D4F52'/%3E%3Ccircle cx='22' cy='10' r='4' fill='%23E9A919'/%3E%3Cpath d='M9 24V9h6.5a4.5 4.5 0 0 1 0 9H9' fill='none' stroke='%23F3FBF9' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:ital,wght@0,400..700;1,400&display=swap">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<div id="view-loading" class="loading-view" role="status">Carregando...</div>
+
+<!-- Login, recuperação e troca de senha -->
+<div id="view-auth" class="auth" hidden>
+  <div class="auth-brand">
+    <div class="auth-brand-inner">
+      <p class="eyebrow">Copplasa Corretora de Seguros</p>
+      <h1>Portal Copplasa</h1>
+      <p class="lede">Comunicados, produtos e canais de atendimento para clientes, parceiros e equipe Copplasa.</p>
+    </div>
+  </div>
+  <div class="auth-panel">
+    <form id="auth-login" class="auth-form" novalidate hidden>
+      <h2>Entrar</h2>
+      <p class="auth-sub">Use o e-mail e a senha que a Copplasa cadastrou para você.</p>
+      <div class="field">
+        <label for="login-email">E-mail</label>
+        <input id="login-email" type="email" autocomplete="username" inputmode="email" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Senha</label>
+        <input id="login-password" type="password" autocomplete="current-password" required>
+      </div>
+      <p class="form-msg" role="alert"></p>
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      <button type="button" class="link-btn" data-goto="forgot">Esqueci minha senha</button>
+    </form>
+
+    <form id="auth-forgot" class="auth-form" novalidate hidden>
+      <h2>Criar nova senha</h2>
+      <p class="auth-sub">Informe seu e-mail. Se ele tiver acesso ao portal, você recebe um link para criar uma nova senha.</p>
+      <div class="field">
+        <label for="forgot-email">E-mail</label>
+        <input id="forgot-email" type="email" autocomplete="username" inputmode="email" required>
+      </div>
+      <p class="form-msg" role="alert"></p>
+      <button type="submit" class="btn btn-primary btn-block">Enviar link</button>
+      <button type="button" class="link-btn" data-goto="login">Voltar para o login</button>
+    </form>
+
+    <form id="auth-newpass" class="auth-form" novalidate hidden>
+      <h2 id="newpass-title">Alterar senha</h2>
+      <p class="auth-sub" id="newpass-sub">Use pelo menos 8 caracteres, misturando letras e números.</p>
+      <input type="text" id="newpass-user" autocomplete="username" hidden>
+      <div class="field">
+        <label for="newpass-1">Nova senha</label>
+        <input id="newpass-1" type="password" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="field">
+        <label for="newpass-2">Repita a nova senha</label>
+        <input id="newpass-2" type="password" autocomplete="new-password" minlength="8" required>
+      </div>
+      <p class="form-msg" role="alert"></p>
+      <button type="submit" class="btn btn-primary btn-block">Salvar senha</button>
+      <button type="button" class="link-btn" id="newpass-cancel">Cancelar</button>
+    </form>
+
+    <div id="auth-setup" class="auth-form" hidden>
+      <h2>Configuração pendente</h2>
+      <p class="auth-sub">O portal ainda não está conectado ao banco de dados. Preencha o arquivo <code>config.js</code> com a URL e a chave pública do projeto Supabase.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Portal -->
+<div id="view-portal" hidden>
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+  <header class="hero">
+    <div class="wrap hero-inner">
+      <div class="hero-text">
+        <p class="eyebrow">Copplasa Corretora de Seguros</p>
+        <h1>Portal Copplasa</h1>
+        <p class="lede" id="lede"></p>
+      </div>
+      <div class="hero-side">
+        <p class="who">Conectado como <strong id="who-name"></strong></p>
+        <p class="stamp">Atualizado em <span class="mono" id="stamp-date"></span></p>
+        <div class="hero-actions">
+          <button type="button" class="btn btn-hero" id="open-editor" hidden>Editar conteúdo</button>
+          <button type="button" class="btn btn-hero-ghost" id="change-pass">Alterar senha</button>
+          <button type="button" class="btn btn-hero-ghost" id="sign-out">Sair</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <nav class="nav" aria-label="Seções do portal">
+    <div class="wrap nav-inner">
+      <a href="#avisos">Avisos</a><a href="#produtos">Produtos</a><a href="#duvidas">Dúvidas</a><a href="#links">Links úteis</a><a href="#contatos">Contatos</a>
+    </div>
+  </nav>
+  <div class="banner" id="banner" hidden>
+    <div class="wrap banner-inner">
+      <p>Prévia com alterações ainda não publicadas.</p>
+      <button type="button" class="btn btn-ghost btn-sm" id="banner-edit">Continuar editando</button>
+    </div>
+  </div>
+  <main class="wrap main" id="conteudo" tabindex="-1"></main>
+  <footer class="foot">
+    <div class="wrap foot-inner">
+      <p><strong>Acesso restrito.</strong> Este portal é visível apenas para pessoas cadastradas pela Copplasa.</p>
+      <p>Não envie CPF, dados de saúde, apólices ou informações de sinistros por aqui. Use os canais indicados pela equipe Copplasa.</p>
+    </div>
+  </footer>
+
+  <aside class="editor" id="editor" hidden aria-labelledby="ed-title">
+    <div class="ed-head">
+      <h2 id="ed-title" tabindex="-1">Editar conteúdo</h2>
+      <button type="button" class="btn btn-ghost btn-sm" id="ed-close">Fechar</button>
+    </div>
+    <p class="ed-note">Tudo o que você publicar fica visível para todas as pessoas com acesso ao portal, inclusive clientes e parceiros. Não inclua CPF, dados de saúde, apólices ou sinistros.</p>
+    <div class="ed-tabs" id="ed-tabs"></div>
+    <div class="ed-body" id="ed-body"></div>
+    <div class="ed-foot">
+      <p class="ed-status" id="ed-status" role="status"></p>
+      <div class="ed-actions">
+        <button type="button" class="btn btn-ghost" id="ed-discard">Descartar alterações</button>
+        <button type="button" class="btn btn-primary" id="ed-publish">Publicar</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="config.js"></script>
+<script src="assets/vendor/supabase-2.45.4.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

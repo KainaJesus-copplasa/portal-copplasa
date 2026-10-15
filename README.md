@@ -36,6 +36,10 @@ No plano gratuito do GitHub, o repositório precisa ser público para usar o Pag
 - O Supabase pausa projetos gratuitos depois de cerca de uma semana sem uso. Para reativar, clique em **Restore** no painel. O plano pago não pausa.
 - Sem um servidor de e-mail próprio, o Supabase só envia e-mails (como "Esqueci minha senha") para membros da equipe do projeto, e com limite por hora. Para clientes recuperarem a senha sozinhos, configure um SMTP em **Authentication > Emails > SMTP Settings** (por exemplo, a conta de e-mail corporativa). Sem isso, a Copplasa redefine a senha pelo painel.
 
+## Ao alterar o código
+
+O GitHub Pages deixa o navegador guardar os arquivos por até 10 minutos. Ao mudar `config.js`, `assets/app.js` ou `assets/styles.css`, aumente o número `?v=` desses arquivos em `index.html` para que todos recebam a versão nova.
+
 ## Arquivos
 
 | Arquivo | Para que serve |

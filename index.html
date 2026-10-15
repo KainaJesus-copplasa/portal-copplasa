@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:ital,wght@0,400..700;1,400&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=2">
+<link rel="stylesheet" href="assets/styles.css?v=3">
 </head>
 <body>
 
@@ -93,6 +93,7 @@
         <p class="stamp">Atualizado em <span class="mono" id="stamp-date"></span></p>
         <div class="hero-actions">
           <button type="button" class="btn btn-hero" id="open-editor" hidden>Editar conteúdo</button>
+          <button type="button" class="btn btn-hero-ghost" id="open-access" hidden>Acessos</button>
           <button type="button" class="btn btn-hero-ghost" id="change-pass">Alterar senha</button>
           <button type="button" class="btn btn-hero-ghost" id="sign-out">Sair</button>
         </div>
@@ -101,7 +102,7 @@
   </header>
   <nav class="nav" aria-label="Seções do portal">
     <div class="wrap nav-inner">
-      <a href="#avisos">Avisos</a><a href="#produtos">Produtos</a><a href="#duvidas">Dúvidas</a><a href="#links">Links úteis</a><a href="#contatos">Contatos</a>
+      <a href="#relatorios" id="nav-relatorios" hidden>Relatórios</a><a href="#avisos">Avisos</a><a href="#produtos">Produtos</a><a href="#duvidas">Dúvidas</a><a href="#links">Links úteis</a><a href="#contatos">Contatos</a>
     </div>
   </nav>
   <div class="banner" id="banner" hidden>
@@ -110,6 +111,16 @@
       <button type="button" class="btn btn-ghost btn-sm" id="banner-edit">Continuar editando</button>
     </div>
   </div>
+  <section class="wrap reports" id="relatorios" aria-labelledby="h-relatorios" hidden>
+    <div class="sec-head">
+      <h2 id="h-relatorios">Relatórios</h2>
+      <div class="sec-head-side">
+        <p class="sec-sub" id="rel-sub"></p>
+        <button type="button" class="btn btn-primary btn-sm" id="rel-new" hidden>Publicar relatório</button>
+      </div>
+    </div>
+    <div id="rel-list"></div>
+  </section>
   <main class="wrap main" id="conteudo" tabindex="-1"></main>
   <footer class="foot">
     <div class="wrap foot-inner">
@@ -134,12 +145,89 @@
       </div>
     </div>
   </aside>
+
+  <!-- Publicar / editar relatório -->
+  <aside class="editor" id="rel-panel" hidden aria-labelledby="rel-title">
+    <div class="ed-head">
+      <h2 id="rel-title" tabindex="-1">Publicar relatório</h2>
+      <button type="button" class="btn btn-ghost btn-sm" id="rel-close">Fechar</button>
+    </div>
+    <form class="ed-body" id="rel-form" novalidate>
+      <div class="field">
+        <label for="rel-titulo">Título</label>
+        <input id="rel-titulo" type="text" maxlength="120" required>
+      </div>
+      <div class="field">
+        <label for="rel-descricao">Descrição (opcional)</label>
+        <textarea id="rel-descricao" rows="3" maxlength="400"></textarea>
+      </div>
+      <div class="field">
+        <label for="rel-empresa">Quem pode ver</label>
+        <select id="rel-empresa"></select>
+        <p class="field-hint" id="rel-empresa-hint"></p>
+      </div>
+      <div class="field">
+        <label for="rel-arquivo" id="rel-arquivo-label">Arquivo do relatório (.html)</label>
+        <input id="rel-arquivo" type="file" accept=".html,.htm,text/html">
+        <p class="field-hint" id="rel-arquivo-hint">O mesmo arquivo que abre no navegador com dois cliques. Até 50 MB.</p>
+      </div>
+      <div class="danger-zone" id="rel-delete-zone" hidden>
+        <button type="button" class="btn btn-ghost btn-sm" id="rel-delete">Excluir relatório</button>
+      </div>
+    </form>
+    <div class="ed-foot">
+      <p class="ed-status" id="rel-status" role="status"></p>
+      <div class="ed-actions">
+        <button type="button" class="btn btn-ghost" id="rel-cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="rel-save">Publicar</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Acessos -->
+  <aside class="editor editor-wide" id="access-panel" hidden aria-labelledby="access-title">
+    <div class="ed-head">
+      <h2 id="access-title" tabindex="-1">Acessos</h2>
+      <button type="button" class="btn btn-ghost btn-sm" id="access-close">Fechar</button>
+    </div>
+    <p class="ed-note">Para criar um login novo, use o painel do Supabase em Authentication &gt; Users &gt; Add user. Depois ele aparece aqui para você escolher o que a pessoa vê.</p>
+    <div class="ed-body" id="access-body">
+      <div class="access-new">
+        <div class="field">
+          <label for="new-empresa">Cadastrar empresa cliente</label>
+          <div class="inline-form">
+            <input id="new-empresa" type="text" maxlength="120" placeholder="Nome da empresa">
+            <button type="button" class="btn btn-ghost" id="add-empresa">Adicionar</button>
+          </div>
+        </div>
+      </div>
+      <div id="access-list"></div>
+    </div>
+    <div class="ed-foot">
+      <p class="ed-status" id="access-status" role="status"></p>
+    </div>
+  </aside>
+
+  <!-- Visualizador de relatório -->
+  <div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-labelledby="viewer-title">
+    <div class="viewer-bar">
+      <button type="button" class="btn btn-ghost btn-sm" id="viewer-back">← Voltar ao portal</button>
+      <div class="viewer-heading">
+        <strong id="viewer-title"></strong>
+        <span class="viewer-meta" id="viewer-meta"></span>
+      </div>
+    </div>
+    <div class="viewer-body">
+      <p class="viewer-status" id="viewer-status"></p>
+      <iframe id="viewer-frame" title="Relatório" sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-modals" referrerpolicy="no-referrer"></iframe>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="config.js?v=2"></script>
 <script src="assets/vendor/supabase-2.45.4.js"></script>
-<script src="assets/app.js?v=2"></script>
+<script src="assets/app.js?v=3"></script>
 </body>
 </html>

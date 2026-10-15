@@ -111,6 +111,15 @@
   let busy = false;
   let statusLocked = false;
   let newPassMode = "change";
+  let reports = [];
+  let empresas = [];
+  let people = [];
+  let isEquipe = false;
+  let relSetupMissing = false;
+  let relEditing = null;
+  let relBusy = false;
+  let viewerToken = 0;
+  const reportCache = new Map();
 
   // ---------- Telas ----------
   function showView(name) {
@@ -264,15 +273,393 @@
     $("#open-editor").hidden = !canEdit;
     renderContent(state);
     if (canEdit) restoreStash();
+    await loadReports();
+    const deep = /^#relatorio-([0-9a-f-]{36})$/i.exec(location.hash);
+    if (deep) openReport(deep[1], false);
   }
   function resetPortal() {
     session = null; state = null; loadedAt = null; draft = null; canEdit = false; busy = false;
+    reports = []; empresas = []; people = []; isEquipe = false; relEditing = null;
+    reportCache.clear();
     clearStash();
-    $("#editor").hidden = true;
-    $("#view-portal").classList.remove("with-editor");
+    closeReport(true);
+    hidePanels();
     $("#open-editor").hidden = true;
+    $("#open-access").hidden = true;
     $("#banner").hidden = true;
+    $("#relatorios").hidden = true;
+    $("#nav-relatorios").hidden = true;
+    $("#rel-list").innerHTML = "";
     $("#conteudo").innerHTML = "";
+  }
+
+  // ---------- Painéis laterais ----------
+  const PANELS = ["editor", "rel-panel", "access-panel"];
+  function showPanel(id) {
+    PANELS.forEach((p) => { if (p !== id) $("#" + p).hidden = true; });
+    $("#" + id).hidden = false;
+    const wide = $("#" + id).classList.contains("editor-wide");
+    $("#view-portal").classList.toggle("with-editor", !wide);
+    $("#view-portal").classList.toggle("with-editor-wide", wide);
+  }
+  function hidePanels() {
+    PANELS.forEach((p) => { $("#" + p).hidden = true; });
+    $("#view-portal").classList.remove("with-editor", "with-editor-wide");
+  }
+  const anyPanelOpen = () => PANELS.some((p) => !$("#" + p).hidden);
+
+  // ---------- Relatórios ----------
+  function fmtSize(bytes) {
+    if (!bytes && bytes !== 0) return "";
+    const mb = bytes / (1024 * 1024);
+    return mb >= 1 ? mb.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " MB"
+                   : Math.max(1, Math.round(bytes / 1024)).toLocaleString("pt-BR") + " KB";
+  }
+  async function loadReports() {
+    let rel, eq;
+    try {
+      [rel, eq] = await Promise.all([
+        sb.from("portal_relatorios")
+          .select("id, titulo, descricao, empresa_id, arquivo, tamanho, publicado_em, empresa:portal_empresas(nome)")
+          .order("publicado_em", { ascending: false }),
+        sb.rpc("portal_eh_equipe")
+      ]);
+    } catch (_) {
+      rel = { error: true }; eq = { error: true };
+    }
+    if (!session) return;
+    relSetupMissing = !!rel.error;
+    reports = rel.error ? [] : (rel.data || []);
+    isEquipe = !eq.error && eq.data === true;
+    if (canEdit && !relSetupMissing) {
+      const emp = await sb.from("portal_empresas").select("id, nome").order("nome");
+      empresas = emp.error ? [] : (emp.data || []);
+    }
+    renderReports();
+  }
+  function renderReports() {
+    const show = reports.length > 0 || canEdit;
+    $("#relatorios").hidden = !show;
+    $("#nav-relatorios").hidden = !show;
+    $("#rel-new").hidden = !(canEdit && !relSetupMissing);
+    $("#open-access").hidden = !(canEdit && !relSetupMissing);
+    if (!show) return;
+    $("#rel-sub").textContent = isEquipe ? "Relatórios internos da equipe e relatórios de clientes." : "Relatórios da sua empresa.";
+    if (relSetupMissing) {
+      $("#rel-list").innerHTML = '<p class="rel-hint">A área de relatórios ainda não foi ativada no banco de dados. Rode o arquivo <code>supabase/relatorios.sql</code> no SQL Editor do Supabase e recarregue a página.</p>';
+      return;
+    }
+    if (!reports.length) {
+      $("#rel-list").innerHTML = '<p class="rel-hint">Nenhum relatório publicado ainda. Use “Publicar relatório” para enviar o primeiro.</p>';
+      return;
+    }
+    $("#rel-list").innerHTML = '<div class="rel-grid">' + reports.map((r) => {
+      const who = !isEquipe ? ""
+        : r.empresa_id ? '<span><span class="chip">' + esc((r.empresa && r.empresa.nome) || "Cliente") + "</span></span>"
+        : '<span><span class="chip chip-solid">Somente equipe</span></span>';
+      const meta = "Atualizado em " + fmtTimestamp(r.publicado_em) + (r.tamanho ? " · " + fmtSize(r.tamanho) : "");
+      return '<article class="rel-card"><h3>' + esc(r.titulo) + "</h3>" + who +
+        (r.descricao ? "<p>" + esc(r.descricao) + "</p>" : "") +
+        '<span class="rel-meta">' + esc(meta) + "</span>" +
+        '<div class="rel-actions"><button type="button" class="btn btn-primary btn-sm" data-open="' + esc(r.id) + '">Abrir relatório</button>' +
+        (canEdit ? '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(r.id) + '">Editar</button>' : "") +
+        "</div></article>";
+    }).join("") + "</div>";
+  }
+
+  // Troca o iframe inteiro em vez de navegar o existente: assim abrir um relatório
+  // não cria entradas extras no histórico e o botão Voltar do navegador fecha o visualizador.
+  function mountFrame(html) {
+    const old = $("#viewer-frame");
+    const f = document.createElement("iframe");
+    f.id = "viewer-frame";
+    f.title = "Relatório";
+    f.setAttribute("sandbox", "allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-modals");
+    f.setAttribute("referrerpolicy", "no-referrer");
+    if (html == null) f.hidden = true;
+    else f.srcdoc = html;
+    old.replaceWith(f);
+    return f;
+  }
+  function setViewerStatus(msg, kind) {
+    const el = $("#viewer-status");
+    el.textContent = msg || "";
+    el.hidden = !msg;
+    el.className = "viewer-status" + (kind ? " " + kind : "");
+  }
+  async function openReport(id, push) {
+    const r = reports.find((x) => x.id === id);
+    if (!r) {
+      if (!push) history.replaceState(null, "", location.pathname + location.search);
+      return;
+    }
+    const token = ++viewerToken;
+    $("#viewer-title").textContent = r.titulo;
+    $("#viewer-meta").textContent = "Atualizado em " + fmtTimestamp(r.publicado_em);
+    mountFrame(null);
+    setViewerStatus("Carregando relatório" + (r.tamanho ? " (" + fmtSize(r.tamanho) + ")" : "") + "...");
+    $("#viewer").hidden = false;
+    document.body.classList.add("viewer-open");
+    if (push !== false) history.pushState({ relatorio: id }, "", "#relatorio-" + id);
+    $("#viewer-back").focus();
+    try {
+      let html = reportCache.get(r.arquivo);
+      if (!html) {
+        const { data, error } = await sb.storage.from("relatorios").download(r.arquivo);
+        if (error) throw error;
+        html = await data.text();
+        reportCache.set(r.arquivo, html);
+      }
+      if (token !== viewerToken) return;
+      // O relatório roda isolado (sem acesso à sessão do portal), mas com scripts e downloads.
+      mountFrame(html);
+      setViewerStatus("");
+    } catch (_) {
+      if (token !== viewerToken) return;
+      setViewerStatus("Não foi possível abrir o relatório. Verifique sua conexão e tente de novo.", "err");
+    }
+  }
+  function closeReport(fromHistory) {
+    if ($("#viewer").hidden) return;
+    viewerToken++;
+    $("#viewer").hidden = true;
+    document.body.classList.remove("viewer-open");
+    mountFrame(null);
+    if (!fromHistory) {
+      if (history.state && history.state.relatorio) history.back();
+      else if (/^#relatorio-/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+    }
+  }
+
+  // Publicar / editar
+  function relStatus(msg, kind) {
+    const el = $("#rel-status");
+    el.textContent = msg || "";
+    el.className = "ed-status" + (kind ? " " + kind : "");
+  }
+  function setRelBusy(on) {
+    ["#rel-save", "#rel-cancel", "#rel-delete", "#rel-titulo", "#rel-descricao", "#rel-empresa", "#rel-arquivo"].forEach((s) => { $(s).disabled = on; });
+  }
+  let relDeleteArmed = 0;
+  function disarmRelDelete() {
+    clearTimeout(relDeleteArmed); relDeleteArmed = 0;
+    $("#rel-delete").textContent = "Excluir relatório";
+    $("#rel-delete").classList.remove("btn-danger");
+  }
+  function openRelPanel(r) {
+    if (!canEdit || relSetupMissing) return;
+    relEditing = r || null;
+    $("#rel-title").textContent = r ? "Editar relatório" : "Publicar relatório";
+    $("#rel-save").textContent = r ? "Salvar" : "Publicar";
+    $("#rel-titulo").value = r ? r.titulo : "";
+    $("#rel-descricao").value = r ? (r.descricao || "") : "";
+    $("#rel-empresa").innerHTML = '<option value="">Somente equipe Copplasa (interno)</option>' +
+      empresas.map((e) => '<option value="' + esc(e.id) + '">Cliente: ' + esc(e.nome) + "</option>").join("");
+    $("#rel-empresa").value = r && r.empresa_id ? r.empresa_id : "";
+    $("#rel-empresa-hint").textContent = empresas.length
+      ? "Clientes só veem relatórios da própria empresa. A equipe vê todos."
+      : "Para publicar para um cliente, cadastre a empresa em Acessos.";
+    $("#rel-arquivo").value = "";
+    $("#rel-arquivo-label").textContent = r ? "Substituir arquivo (opcional)" : "Arquivo do relatório (.html)";
+    $("#rel-arquivo-hint").textContent = r
+      ? "Envie a versão nova do relatório para atualizar o que todos veem. Até 50 MB."
+      : "O mesmo arquivo que abre no navegador com dois cliques. Até 50 MB.";
+    $("#rel-delete-zone").hidden = !r;
+    disarmRelDelete();
+    relStatus("");
+    setRelBusy(false);
+    showPanel("rel-panel");
+    $("#rel-title").focus();
+  }
+  function closeRelPanel() {
+    if (relBusy) return;
+    $("#rel-panel").hidden = true;
+    if (!anyPanelOpen()) hidePanels();
+    relEditing = null;
+  }
+  function newFileName() {
+    const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2);
+    return id + ".html";
+  }
+  function relErrorText(e) {
+    const msg = String((e && e.message) || "").toLowerCase();
+    const status = String((e && (e.statusCode || e.status)) || "");
+    if (status === "413" || msg.indexOf("maximum allowed size") >= 0 || msg.indexOf("too large") >= 0) return "O arquivo passa do limite de 50 MB.";
+    if (msg.indexOf("mime type") >= 0) return "O arquivo precisa ser uma página .html.";
+    if ((e && e.code) === "sem_permissao" || (e && e.code) === "42501" || msg.indexOf("row-level security") >= 0 || status === "403") return "Seu acesso não permite publicar relatórios.";
+    if (msg.indexOf("fetch") >= 0 || msg.indexOf("network") >= 0) return "Sem conexão com o servidor. Verifique sua internet e tente de novo.";
+    return "Não foi possível salvar o relatório. Tente de novo em instantes.";
+  }
+  async function saveReport() {
+    if (relBusy) return;
+    const titulo = $("#rel-titulo").value.trim();
+    const descricao = $("#rel-descricao").value.trim();
+    const empresaId = $("#rel-empresa").value || null;
+    const file = $("#rel-arquivo").files[0] || null;
+    if (!titulo) { relStatus("Dê um título ao relatório.", "err"); $("#rel-titulo").focus(); return; }
+    if (!relEditing && !file) { relStatus("Escolha o arquivo .html do relatório.", "err"); $("#rel-arquivo").focus(); return; }
+    if (file) {
+      if (!/\.html?$/i.test(file.name)) { relStatus("O arquivo precisa ser uma página .html.", "err"); return; }
+      if (file.size > 50 * 1024 * 1024) { relStatus("O arquivo passa do limite de 50 MB.", "err"); return; }
+      const head = (await file.slice(0, 4096).text()).toLowerCase();
+      if (head.indexOf("<html") < 0 && head.indexOf("<!doctype") < 0) { relStatus("Este arquivo não parece ser uma página HTML.", "err"); return; }
+    }
+    const editing = relEditing;
+    relBusy = true; setRelBusy(true);
+    let newPath = null;
+    try {
+      if (file) {
+        relStatus("Enviando arquivo (" + fmtSize(file.size) + ")...");
+        newPath = newFileName();
+        const up = await sb.storage.from("relatorios").upload(newPath, file, { contentType: "text/html", upsert: false, cacheControl: "3600" });
+        if (up.error) throw up.error;
+      }
+      relStatus("Salvando...");
+      const fields = { titulo, descricao, empresa_id: empresaId };
+      if (newPath) { fields.arquivo = newPath; fields.tamanho = file.size; }
+      const res = editing
+        ? await sb.from("portal_relatorios").update(fields).eq("id", editing.id).select("id")
+        : await sb.from("portal_relatorios").insert(fields).select("id");
+      if (res.error) throw res.error;
+      if (!res.data || !res.data.length) throw { code: "sem_permissao" };
+      if (editing && newPath && editing.arquivo) {
+        reportCache.delete(editing.arquivo);
+        try { await sb.storage.from("relatorios").remove([editing.arquivo]); } catch (_) {}
+      }
+      newPath = null;
+      relBusy = false;
+      closeRelPanel();
+      toast(editing ? "Relatório atualizado." : "Relatório publicado.");
+      await loadReports();
+    } catch (e) {
+      if (newPath) { try { await sb.storage.from("relatorios").remove([newPath]); } catch (_) {} }
+      relStatus(relErrorText(e), "err");
+    } finally {
+      relBusy = false;
+      setRelBusy(false);
+    }
+  }
+  async function deleteReport() {
+    const r = relEditing;
+    if (!r || relBusy) return;
+    const b = $("#rel-delete");
+    if (!relDeleteArmed) {
+      b.textContent = "Confirmar exclusão";
+      b.classList.add("btn-danger");
+      relDeleteArmed = setTimeout(disarmRelDelete, 4000);
+      return;
+    }
+    disarmRelDelete();
+    relBusy = true; setRelBusy(true); relStatus("Excluindo...");
+    try {
+      const res = await sb.from("portal_relatorios").delete().eq("id", r.id).select("id");
+      if (res.error) throw res.error;
+      if (!res.data || !res.data.length) throw { code: "sem_permissao" };
+      reportCache.delete(r.arquivo);
+      try { await sb.storage.from("relatorios").remove([r.arquivo]); } catch (_) {}
+      relBusy = false;
+      closeRelPanel();
+      toast("Relatório excluído.");
+      await loadReports();
+    } catch (e) {
+      relStatus(relErrorText(e), "err");
+    } finally {
+      relBusy = false;
+      setRelBusy(false);
+    }
+  }
+
+  // Acessos
+  function accessStatus(msg, kind) {
+    const el = $("#access-status");
+    el.textContent = msg || "";
+    el.className = "ed-status" + (kind ? " " + kind : "");
+  }
+  async function openAccessPanel() {
+    if (!canEdit || relSetupMissing) return;
+    showPanel("access-panel");
+    $("#access-title").focus();
+    $("#access-list").innerHTML = "";
+    accessStatus("Carregando...");
+    await loadAccess();
+  }
+  async function loadAccess() {
+    let acc, emp;
+    try {
+      [acc, emp] = await Promise.all([
+        sb.rpc("portal_listar_acessos"),
+        sb.from("portal_empresas").select("id, nome").order("nome")
+      ]);
+    } catch (_) {
+      acc = { error: true };
+    }
+    if (acc.error || !emp || emp.error) { accessStatus("Não foi possível carregar os acessos. Recarregue a página e tente de novo.", "err"); return; }
+    people = acc.data || [];
+    empresas = emp.data || [];
+    renderAccess();
+    accessStatus(people.length === 1 ? "1 login cadastrado." : people.length + " logins cadastrados.");
+  }
+  function accessValue(p) {
+    if (p.editor) return "editor";
+    if (p.equipe) return "equipe";
+    return p.empresa_id ? "empresa:" + p.empresa_id : "";
+  }
+  function renderAccess() {
+    const opts = '<option value="">Só o portal (sem relatórios)</option><option value="equipe">Equipe Copplasa</option>' +
+      empresas.map((e) => '<option value="empresa:' + esc(e.id) + '">Cliente: ' + esc(e.nome) + "</option>").join("");
+    $("#access-list").innerHTML = people.map((p) => {
+      const last = p.ultimo_acesso ? "Último acesso: " + fmtTimestamp(p.ultimo_acesso) : "Ainda não entrou";
+      const sel = p.editor
+        ? '<select disabled aria-label="Acesso de ' + esc(p.email) + '"><option value="editor">Editor (equipe)</option></select>'
+        : '<select data-user="' + esc(p.user_id) + '" aria-label="Acesso de ' + esc(p.email) + '">' + opts + "</select>";
+      return '<div class="access-row"><div class="access-who"><span class="access-email">' + esc(p.email) + '</span><span class="access-last">' + esc(last) + "</span></div>" + sel + "</div>";
+    }).join("");
+    $("#access-list").querySelectorAll("select[data-user]").forEach((s) => {
+      const p = people.find((x) => x.user_id === s.dataset.user);
+      s.value = accessValue(p);
+    });
+  }
+  async function changeAccess(sel) {
+    const p = people.find((x) => x.user_id === sel.dataset.user);
+    if (!p) return;
+    const v = sel.value;
+    const before = accessValue(p);
+    sel.disabled = true;
+    accessStatus("Salvando...");
+    let res;
+    try {
+      res = await sb.rpc("portal_definir_acesso", {
+        p_user_id: p.user_id,
+        p_equipe: v === "equipe",
+        p_empresa_id: v.indexOf("empresa:") === 0 ? v.slice(8) : null
+      });
+    } catch (e) { res = { error: e }; }
+    sel.disabled = false;
+    if (res.error) {
+      sel.value = before;
+      accessStatus("Não foi possível alterar o acesso de " + p.email + ". Tente de novo.", "err");
+      return;
+    }
+    p.equipe = v === "equipe";
+    p.empresa_id = v.indexOf("empresa:") === 0 ? v.slice(8) : null;
+    accessStatus("Acesso de " + p.email + " atualizado.", "ok");
+  }
+  async function addEmpresa() {
+    const input = $("#new-empresa");
+    const nome = input.value.trim();
+    if (!nome) { accessStatus("Digite o nome da empresa.", "err"); input.focus(); return; }
+    $("#add-empresa").disabled = true;
+    let res;
+    try { res = await sb.from("portal_empresas").insert({ nome }).select("id"); }
+    catch (e) { res = { error: e }; }
+    $("#add-empresa").disabled = false;
+    if (res.error) {
+      accessStatus(res.error.code === "23505" ? "Essa empresa já está cadastrada." : "Não foi possível cadastrar a empresa. Tente de novo.", "err");
+      return;
+    }
+    input.value = "";
+    await loadAccess();
+    accessStatus("Empresa “" + nome + "” cadastrada. Agora escolha quem é dessa empresa.", "ok");
   }
 
   // ---------- Rascunho ----------
@@ -351,14 +738,13 @@
   function openEditor() {
     if (!canEdit || !state) return;
     if (!draft) draft = clone(state);
-    $("#editor").hidden = false;
-    $("#view-portal").classList.add("with-editor");
+    showPanel("editor");
     renderTabs(); renderEdBody(); syncUi();
     $("#ed-title").focus();
   }
   function closeEditor() {
     $("#editor").hidden = true;
-    $("#view-portal").classList.remove("with-editor");
+    if (!anyPanelOpen()) hidePanels();
     if (!dirty()) { draft = null; clearStash(); if (state) renderContent(state); }
     syncUi();
     if (!$("#open-editor").hidden) $("#open-editor").focus();
@@ -581,8 +967,43 @@
     renderEdBody(); renderContent(state); syncUi();
     setStatus("Alterações descartadas.");
   });
+  // ---------- Eventos: relatórios e acessos ----------
+  $("#rel-new").addEventListener("click", () => openRelPanel(null));
+  $("#rel-list").addEventListener("click", (e) => {
+    const o = e.target.closest("[data-open]");
+    if (o) { openReport(o.dataset.open, true); return; }
+    const ed = e.target.closest("[data-edit]");
+    if (ed) openRelPanel(reports.find((r) => r.id === ed.dataset.edit));
+  });
+  $("#rel-form").addEventListener("submit", (e) => { e.preventDefault(); saveReport(); });
+  $("#rel-save").addEventListener("click", saveReport);
+  $("#rel-close").addEventListener("click", closeRelPanel);
+  $("#rel-cancel").addEventListener("click", closeRelPanel);
+  $("#rel-delete").addEventListener("click", deleteReport);
+
+  $("#open-access").addEventListener("click", openAccessPanel);
+  $("#access-close").addEventListener("click", () => { $("#access-panel").hidden = true; if (!anyPanelOpen()) hidePanels(); loadReports(); });
+  $("#access-list").addEventListener("change", (e) => { if (e.target.matches("select[data-user]")) changeAccess(e.target); });
+  $("#add-empresa").addEventListener("click", addEmpresa);
+  $("#new-empresa").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addEmpresa(); } });
+
+  $("#viewer-back").addEventListener("click", () => closeReport(false));
+  window.addEventListener("popstate", (e) => {
+    if (e.state && e.state.relatorio && session) openReport(e.state.relatorio, false);
+    else closeReport(true);
+  });
+  // Link de relatório colado com o portal já aberto
+  window.addEventListener("hashchange", () => {
+    const m = /^#relatorio-([0-9a-f-]{36})$/i.exec(location.hash);
+    if (m && session && state && $("#viewer").hidden) openReport(m[1], false);
+  });
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !$("#editor").hidden) closeEditor();
+    if (e.key !== "Escape") return;
+    if (!$("#viewer").hidden) closeReport(false);
+    else if (!$("#editor").hidden) closeEditor();
+    else if (!$("#rel-panel").hidden) closeRelPanel();
+    else if (!$("#access-panel").hidden) $("#access-close").click();
   });
 
   // ---------- Início ----------

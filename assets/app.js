@@ -14,7 +14,7 @@
   const hasAuthHash = hashParams.has("access_token") || !!linkError;
 
   const STASH_KEY = "copplasa-portal-rascunho";
-  const GRUPOS = ["Saúde e benefícios", "Outros seguros"];
+  const GRUPOS = ["Soluções corporativas", "Famílias e PME"];
 
   const SCHEMA = [
     { key: "portal", label: "Boas-vindas", single: true, fields: [
@@ -25,9 +25,9 @@
       { k: "texto", label: "Texto", type: "textarea" },
       { k: "exemplo", label: "Marcar como exemplo", type: "check" }],
       blank: () => ({ data: todayISO(), titulo: "", texto: "", exemplo: false }) },
-    { key: "produtos", label: "Produtos", noun: "produto", req: "nome", fields: [
+    { key: "produtos", label: "Soluções", noun: "solução", req: "nome", fields: [
       { k: "grupo", label: "Grupo", type: "select", options: GRUPOS },
-      { k: "nome", label: "Nome do produto", type: "text" },
+      { k: "nome", label: "Nome da solução", type: "text" },
       { k: "resumo", label: "Resumo", type: "textarea" },
       { k: "pontos", label: "Pontos de atenção (um por linha)", type: "textarea" }],
       blank: () => ({ grupo: GRUPOS[0], nome: "", resumo: "", pontos: "" }) },
@@ -100,6 +100,195 @@
     toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
   }
 
+  // ---------- Marca: padrões do site copplasa.com.br ----------
+  const BRAND_CACHE_KEY = "copplasa-portal-marca";
+  const FONT_SPEC = {
+    "EB Garamond": "wght@400;500;600;700",
+    "Playfair Display": "wght@400;500;600;700",
+    "Lora": "wght@400;500;600;700",
+    "Merriweather": "wght@300;400;700",
+    "Source Serif 4": "wght@300;400;600;700",
+    "Libre Baskerville": "wght@400;700",
+    "Montserrat": "wght@300;400;500;600;700",
+    "Poppins": "wght@300;400;500;600;700",
+    "Lato": "ital,wght@0,300;0,400;0,700;1,300;1,400",
+    "Raleway": "wght@300;400;500;600;700",
+    "Work Sans": "wght@300;400;500;600;700",
+    "Nunito": "wght@300;400;600;700",
+    "Open Sans": "wght@300;400;600;700",
+    "Roboto": "wght@300;400;500;700",
+    "Inter": "wght@300;400;500;600;700",
+    "Source Sans 3": "wght@300;400;600;700"
+  };
+  const SERIF_FONTS = ["EB Garamond", "Playfair Display", "Lora", "Merriweather", "Source Serif 4", "Libre Baskerville"];
+  const FONTS_TITULOS = ["EB Garamond", "Playfair Display", "Lora", "Merriweather", "Source Serif 4", "Libre Baskerville", "Montserrat", "Poppins", "Lato", "Raleway", "Work Sans", "Nunito"];
+  const FONTS_TEXTO = ["Lato", "Open Sans", "Roboto", "Inter", "Nunito", "Source Sans 3", "Montserrat", "Poppins", "Work Sans", "Raleway", "Merriweather"];
+  const FORMATOS = {
+    pilula: { nome: "Arredondado", btn: "999px", card: "16px", field: "10px" },
+    suave: { nome: "Cantos suaves", btn: "8px", card: "10px", field: "6px" },
+    reto: { nome: "Cantos retos", btn: "2px", card: "2px", field: "2px" }
+  };
+  const COLOR_KEYS = [
+    { k: "principal", nome: "Principal", uso: "Botões, links, títulos de cartões e tela de login" },
+    { k: "secundaria", nome: "Secundária", uso: "Marcadores e detalhes" },
+    { k: "destaque", nome: "Destaque", uso: "Botão Sair, avisos de prévia e foco do teclado" },
+    { k: "texto", nome: "Texto", uso: "Textos e títulos" },
+    { k: "fundo", nome: "Fundo", uso: "Fundo da página" },
+    { k: "fundoSuave", nome: "Fundo suave", uso: "Topo e faixas alternadas" },
+    { k: "rodape", nome: "Rodapé", uso: "Fundo do rodapé" }
+  ];
+  const DEFAULT_BRAND = {
+    nome: "Copplasa",
+    portalNome: "Portal Copplasa",
+    slogan: "seu par em seguros e benefícios",
+    loginTexto: "Comunicados, soluções, relatórios e canais de atendimento para clientes, parceiros e equipe Copplasa.",
+    logo: "assets/marca/logo.svg",
+    logoClaro: "assets/marca/logo-branco.svg",
+    icone: "assets/marca/icone.png",
+    cores: { principal: "#006CD1", secundaria: "#00D1CE", destaque: "#D1006C", texto: "#4D4D4D", fundo: "#FFFFFF", fundoSuave: "#E6F0FA", rodape: "#4D4D4D" },
+    fontes: { titulos: "EB Garamond", texto: "Lato" },
+    titulosMinusculos: true,
+    formato: "pilula",
+    empresa: {
+      descricao: "Mais do que uma consultoria: uma parceira estratégica em benefícios e seguros, cuidando do que realmente importa: as pessoas.",
+      email: "contato@copplasa.com.br",
+      telefone: "",
+      whatsapp: "",
+      site: "https://www.copplasa.com.br",
+      redes: {
+        instagram: "https://www.instagram.com/copplasa/",
+        linkedin: "https://br.linkedin.com/company/copplasa",
+        facebook: "https://www.facebook.com/copplasa/",
+        youtube: "https://www.youtube.com/@copplasa"
+      },
+      unidades: [
+        { nome: "Unidade São Paulo", endereco: "Rua Alexandre Dumas, 2220 - Conjuntos 51 e 53 - Chácara Santo Antônio (Zona Sul), São Paulo - SP, 04717-004", mapa: "https://maps.app.goo.gl/gR5A5AQe4zubAVjv8" },
+        { nome: "Unidade Rio de Janeiro", endereco: "R. da Alfândega, 101 - Sala 901 - Centro, Rio de Janeiro - RJ, 20070-003", mapa: "https://maps.app.goo.gl/XmuUK1FPQE99Eh4A6" }
+      ],
+      links: [
+        { titulo: "Site da Copplasa", url: "https://www.copplasa.com.br" },
+        { titulo: "Blog", url: "https://blog.copplasa.com.br" },
+        { titulo: "Privacidade", url: "https://copplasa.com.br/politica-de-privacidade.html" },
+        { titulo: "Tratamento de dados", url: "https://copplasa.com.br/AVISO%20DE%20TRATAMENTO%20DE%20DADOS.html" },
+        { titulo: "Termos de serviço", url: "https://copplasa.com.br/termos-servico.html" }
+      ]
+    }
+  };
+  const SOCIAL = {
+    instagram: { nome: "Instagram", svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.2" fill="currentColor"/></svg>' },
+    linkedin: { nome: "LinkedIn", svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" fill="currentColor"/><g fill="var(--footer-bg)"><rect x="6.6" y="10" width="2.4" height="7.4"/><circle cx="7.8" cy="7.3" r="1.4"/><path d="M11 10h2.3v1.1c.4-.7 1.3-1.3 2.6-1.3 2.3 0 2.8 1.5 2.8 3.4v4.2h-2.4v-3.7c0-.9-.1-2-1.3-2s-1.6.9-1.6 1.9v3.8H11z"/></g></svg>' },
+    facebook: { nome: "Facebook", svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor"/><path fill="var(--footer-bg)" d="M13.2 21.4v-6.9h2.3l.4-2.7h-2.7v-1.7c0-.8.3-1.3 1.4-1.3h1.4V6.4c-.3 0-1.1-.1-2-.1-2 0-3.3 1.2-3.3 3.4v2.1H8.4v2.7h2.3v6.9z"/></svg>' },
+    youtube: { nome: "YouTube", svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5.5" width="20" height="13" rx="4" fill="currentColor"/><path fill="var(--footer-bg)" d="M10 9v6l5.2-3z"/></svg>' }
+  };
+
+  const isHex = (c) => /^#[0-9a-f]{6}$/i.test(String(c || ""));
+  function safeImg(u) {
+    u = String(u || "");
+    return /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[a-z0-9+/=]+$/i.test(u) || /^assets\/marca\/[\w.-]+$/.test(u) || /^https:\/\/\S+$/i.test(u) ? u : "";
+  }
+  function luminance(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function contrast(a, b) {
+    const x = luminance(a), y = luminance(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+  const onColor = (hex) => (contrast(hex, "#FFFFFF") >= contrast(hex, "#1A1A1A") ? "#FFFFFF" : "#1A1A1A");
+  function deepMerge(base, over) {
+    const out = clone(base);
+    if (!over || typeof over !== "object" || Array.isArray(over)) return out;
+    Object.keys(base).forEach((k) => {
+      const v = over[k];
+      if (v === undefined || v === null) return;
+      if (base[k] && typeof base[k] === "object" && !Array.isArray(base[k])) out[k] = deepMerge(base[k], v);
+      else if (Array.isArray(base[k])) out[k] = Array.isArray(v) ? clone(v) : out[k];
+      else if (typeof v === typeof base[k]) out[k] = v;
+    });
+    return out;
+  }
+  function cleanBrand(raw) {
+    const b = deepMerge(DEFAULT_BRAND, raw);
+    COLOR_KEYS.forEach(({ k }) => { if (!isHex(b.cores[k])) b.cores[k] = DEFAULT_BRAND.cores[k]; });
+    if (FONTS_TITULOS.indexOf(b.fontes.titulos) < 0) b.fontes.titulos = DEFAULT_BRAND.fontes.titulos;
+    if (FONTS_TEXTO.indexOf(b.fontes.texto) < 0) b.fontes.texto = DEFAULT_BRAND.fontes.texto;
+    if (!FORMATOS[b.formato]) b.formato = DEFAULT_BRAND.formato;
+    ["logo", "logoClaro", "icone"].forEach((k) => { if (!safeImg(b[k])) b[k] = DEFAULT_BRAND[k]; });
+    b.empresa.unidades = b.empresa.unidades.filter((u) => u && typeof u === "object");
+    b.empresa.links = b.empresa.links.filter((l) => l && typeof l === "object");
+    return b;
+  }
+  function fontHref(titulos, texto) {
+    const fam = (n) => "family=" + n.replace(/ /g, "+") + ":" + FONT_SPEC[n];
+    const fams = titulos === texto ? [fam(titulos)] : [fam(titulos), fam(texto)];
+    return "https://fonts.googleapis.com/css2?" + fams.join("&") + "&display=swap";
+  }
+  function applyBrand(raw) {
+    const b = cleanBrand(raw);
+    const st = document.documentElement.style;
+    const c = b.cores;
+    st.setProperty("--c-principal", c.principal);
+    st.setProperty("--c-secundaria", c.secundaria);
+    st.setProperty("--c-destaque", c.destaque);
+    st.setProperty("--c-texto", c.texto);
+    st.setProperty("--c-fundo", c.fundo);
+    st.setProperty("--c-suave", c.fundoSuave);
+    st.setProperty("--c-rodape", c.rodape);
+    st.setProperty("--c-sobre-principal", onColor(c.principal));
+    st.setProperty("--c-sobre-rodape", onColor(c.rodape));
+    st.setProperty("--font-display", '"' + b.fontes.titulos + '", ' + (SERIF_FONTS.indexOf(b.fontes.titulos) >= 0 ? 'Georgia, "Times New Roman", serif' : '"Segoe UI", system-ui, sans-serif'));
+    st.setProperty("--font-body", '"' + b.fontes.texto + '", "Segoe UI", system-ui, -apple-system, sans-serif');
+    const f = FORMATOS[b.formato];
+    st.setProperty("--radius-btn", f.btn);
+    st.setProperty("--radius-card", f.card);
+    st.setProperty("--radius-field", f.field);
+    st.setProperty("--title-transform", b.titulosMinusculos ? "lowercase" : "none");
+    const href = fontHref(b.fontes.titulos, b.fontes.texto);
+    const link = $("#brand-fonts");
+    if (link.getAttribute("href") !== href) link.setAttribute("href", href);
+    document.querySelectorAll('[data-logo="cor"]').forEach((img) => { img.src = b.logo; img.alt = b.nome; });
+    document.querySelectorAll('[data-logo="claro"]').forEach((img) => { img.src = b.logoClaro; img.alt = b.nome; });
+    $("#brand-icon").setAttribute("href", b.icone);
+    document.querySelectorAll("[data-brand]").forEach((el) => { el.textContent = b[el.dataset.brand] || ""; });
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.setAttribute("content", c.principal);
+    document.title = b.portalNome || b.nome;
+    renderFooter(b);
+  }
+  function renderFooter(b) {
+    const e = b.empresa;
+    const ext = (u, label) => '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + label + "</a>";
+    const socials = Object.keys(SOCIAL).map((k) => {
+      const u = safeUrl(e.redes && e.redes[k]);
+      return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" aria-label="' + SOCIAL[k].nome + '">' + SOCIAL[k].svg + "</a>" : "";
+    }).join("");
+    const units = e.unidades.filter((u) => u.nome || u.endereco).map((u) => {
+      const m = safeUrl(u.mapa);
+      return '<p class="foot-unit"><strong>' + esc(u.nome) + "</strong>" + (m ? ext(m, esc(u.endereco)) : esc(u.endereco)) + "</p>";
+    }).join("");
+    const contacts = [];
+    if (/^\S+@\S+\.\S+$/.test(e.email || "")) contacts.push('<li><a href="mailto:' + esc(e.email) + '">' + esc(e.email) + "</a></li>");
+    const tel = String(e.telefone || "").replace(/\D/g, "");
+    if (tel.length >= 8) contacts.push('<li><a href="tel:+' + (tel.length <= 11 ? "55" + tel : tel) + '">' + esc(e.telefone) + "</a></li>");
+    const wa = String(e.whatsapp || "").replace(/\D/g, "");
+    if (wa.length >= 10) contacts.push("<li>" + ext("https://wa.me/" + (wa.length <= 11 ? "55" + wa : wa), "WhatsApp " + esc(e.whatsapp)) + "</li>");
+    const site = safeUrl(e.site);
+    if (site) contacts.push("<li>" + ext(site, esc(hostOf(site))) + "</li>");
+    const links = e.links.map((l) => { const u = safeUrl(l.url); return u && l.titulo ? "<li>" + ext(u, esc(l.titulo)) + "</li>" : ""; }).join("");
+    $("#site-footer").innerHTML = '<div class="wrap foot-grid">' +
+      '<div><img class="foot-logo" src="' + esc(b.logoClaro) + '" alt="' + esc(b.nome) + '">' +
+        (e.descricao ? '<p class="foot-desc">' + esc(e.descricao) + "</p>" : "") +
+        (socials ? '<div class="socials">' + socials + "</div>" : "") + "</div>" +
+      (units ? "<div><h4>Unidades</h4>" + units + "</div>" : "") +
+      (contacts.length ? "<div><h4>Contato</h4><ul>" + contacts.join("") + "</ul></div>" : "") +
+      (links ? "<div><h4>Links</h4><ul>" + links + "</ul></div>" : "") +
+      '</div><div class="wrap foot-bottom"><p>© ' + new Date().getFullYear() + " " + esc(b.nome) + " | todos os direitos reservados</p>" +
+      "<p>Acesso restrito a pessoas cadastradas. Não envie CPF, dados de saúde, apólices ou sinistros por este portal.</p></div>";
+  }
+  function readBrandCache() { try { const s = localStorage.getItem(BRAND_CACHE_KEY); return s ? JSON.parse(s) : null; } catch (_) { return null; } }
+  function writeBrandCache(d) { try { localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(d || {})); } catch (_) {} }
+
   // ---------- Estado ----------
   let sb = null;
   let session = null;
@@ -120,10 +309,18 @@
   let relBusy = false;
   let viewerToken = 0;
   const reportCache = new Map();
+  let brand = cleanBrand(readBrandCache() || {});
+  let brandLoadedAt = null;
+  let brandSetupMissing = false;
+  let brandDraft = null;
+  let brandTab = "marca";
+  let brandBusy = false;
+  let brandStatusLocked = false;
 
   // ---------- Telas ----------
   function showView(name) {
     ["loading", "auth", "portal"].forEach((v) => { $("#view-" + v).hidden = v !== name; });
+    $("#site-footer").hidden = name === "loading";
   }
   function showForm(name) {
     showView("auth");
@@ -171,6 +368,9 @@
   function head(id, title, sub) {
     return '<div class="sec-head"><h2 id="h-' + id + '">' + esc(title) + "</h2>" + (sub ? '<p class="sec-sub">' + esc(sub) + "</p>" : "") + "</div>";
   }
+  function band(id, soft, inner) {
+    return '<section class="band' + (soft ? " band-soft" : "") + '" id="' + id + '" aria-labelledby="h-' + id + '"><div class="wrap">' + inner + "</div></section>";
+  }
   function secAvisos(d) {
     const items = d.avisos.slice().sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
     const body = items.length
@@ -178,7 +378,7 @@
           '<article class="aviso"><div class="aviso-date">' + esc(fmtDate(a.data)) + '</div><div class="aviso-body"><h3>' +
           "<span>" + esc(a.titulo) + "</span>" + (a.exemplo ? EX : "") + "</h3>" + paras(a.texto) + "</div></article>").join("") + "</div>"
       : '<p class="empty">Nenhum aviso publicado no momento.</p>';
-    return '<section id="avisos" aria-labelledby="h-avisos">' + head("avisos", "Avisos", "Comunicados para clientes, parceiros e equipe.") + body + "</section>";
+    return band("avisos", false, head("avisos", "Avisos", "Comunicados para clientes, parceiros e equipe.") + body);
   }
   function card(p) {
     const pts = String(p.pontos || "").split("\n").map((t) => t.trim()).filter(Boolean);
@@ -194,27 +394,28 @@
         return '<div class="prazo"><div class="prazo-num">' + num + '</div><div class="prazo-txt">' + esc(c.descricao) + "</div></div>";
       }).join("") + '</div><p class="prazos-foot">O contrato pode prever prazos menores ou nenhuma carência.</p></div>';
   }
+  function groupsOf(produtos) {
+    const gs = GRUPOS.slice();
+    produtos.forEach((p) => { const g = p.grupo || GRUPOS[0]; if (gs.indexOf(g) < 0) gs.push(g); });
+    return gs;
+  }
   function secProdutos(d) {
-    const extras = [];
-    d.produtos.forEach((p) => { if (p.grupo && GRUPOS.indexOf(p.grupo) < 0 && extras.indexOf(p.grupo) < 0) extras.push(p.grupo); });
-    let html = "";
-    GRUPOS.concat(extras).forEach((g) => {
-      const ps = d.produtos.filter((p) => (p.grupo || GRUPOS[1]) === g);
-      const showPrazos = g === GRUPOS[0] && d.carencias.length;
-      if (!ps.length && !showPrazos) return;
-      html += '<div class="group"><h3 class="group-title">' + esc(g) + "</h3>" +
-        (ps.length ? '<div class="cards">' + ps.map(card).join("") + "</div>" : "") +
-        (showPrazos ? prazos(d) : "") + "</div>";
-    });
-    if (!html) html = '<p class="empty">Nenhum produto cadastrado.</p>';
-    return '<section id="produtos" aria-labelledby="h-produtos">' + head("produtos", "Produtos", "Saúde e benefícios são o foco da Copplasa, com outros seguros para pessoas e empresas.") + html + "</section>";
+    const groups = groupsOf(d.produtos).filter((g) => d.produtos.some((p) => (p.grupo || GRUPOS[0]) === g));
+    // Os prazos de carência ficam junto do grupo de saúde (ou do primeiro grupo).
+    const prazoGroup = groups.find((g) => /corporativ|saúde/i.test(g)) || groups[0];
+    let html = groups.map((g) =>
+      '<div class="group"><h3 class="group-title">' + esc(g) + "</h3>" +
+      '<div class="cards">' + d.produtos.filter((p) => (p.grupo || GRUPOS[0]) === g).map(card).join("") + "</div>" +
+      (g === prazoGroup ? prazos(d) : "") + "</div>").join("");
+    if (!groups.length) html = d.carencias.length ? '<div class="group">' + prazos(d) + "</div>" : '<p class="empty">Nenhuma solução cadastrada.</p>';
+    return band("produtos", true, head("produtos", "Soluções", "Benefícios, saúde e seguros para empresas, pessoas e famílias.") + html);
   }
   function secFaq(d) {
     const body = d.faq.length
       ? '<div class="faq">' + d.faq.map((f) => '<details class="qa"><summary>' + esc(f.pergunta) + '</summary><div class="ans">' + paras(f.resposta) + "</div></details>").join("") + "</div>"
       : '<p class="empty">Nenhuma pergunta cadastrada.</p>';
-    return '<section id="duvidas" aria-labelledby="h-duvidas">' + head("duvidas", "Dúvidas frequentes", "") + body +
-      '<p class="note">Respostas gerais. As regras de cada contrato dependem da operadora ou da seguradora. Em caso de dúvida, fale com a equipe técnica da Copplasa.</p></section>';
+    return band("duvidas", false, head("duvidas", "Dúvidas frequentes", "") + body +
+      '<p class="note">Respostas gerais. As regras de cada contrato dependem da operadora ou da seguradora. Em caso de dúvida, fale com a equipe técnica da Copplasa.</p>');
   }
   function secLinks(d) {
     const body = d.links.length
@@ -241,7 +442,8 @@
   function renderContent(d) {
     $("#lede").textContent = d.portal.boasVindas || "";
     $("#stamp-date").textContent = fmtTimestamp(loadedAt) || "data não informada";
-    $("#conteudo").innerHTML = secAvisos(d) + secProdutos(d) + secFaq(d) + '<div class="split">' + secLinks(d) + secContatos(d) + "</div>";
+    $("#conteudo").innerHTML = secAvisos(d) + secProdutos(d) + secFaq(d) +
+      '<div class="band band-soft"><div class="wrap split">' + secLinks(d) + secContatos(d) + "</div></div>";
   }
 
   // ---------- Entrar no portal ----------
@@ -251,7 +453,7 @@
     showView("portal");
     $("#lede").textContent = "";
     $("#stamp-date").textContent = "...";
-    $("#conteudo").innerHTML = '<p class="empty">Carregando conteúdo...</p>';
+    $("#conteudo").innerHTML = '<div class="band"><div class="wrap"><p class="empty">Carregando conteúdo...</p></div></div>';
     let content, editor;
     try {
       [content, editor] = await Promise.all([
@@ -264,13 +466,14 @@
     if (!session) return; // saiu enquanto carregava
     if (content.error) {
       $("#stamp-date").textContent = "-";
-      $("#conteudo").innerHTML = '<p class="load-err">Não foi possível carregar o conteúdo. Recarregue a página. Se o problema continuar, fale com a equipe Copplasa.</p>';
+      $("#conteudo").innerHTML = '<div class="band"><div class="wrap"><p class="load-err">Não foi possível carregar o conteúdo. Recarregue a página. Se o problema continuar, fale com a equipe Copplasa.</p></div></div>';
       return;
     }
     state = normalize(content.data ? content.data.dados : {});
     loadedAt = content.data ? content.data.atualizado_em : null;
     canEdit = !!(editor && !editor.error && editor.data);
     $("#open-editor").hidden = !canEdit;
+    $("#open-brand").hidden = !canEdit;
     renderContent(state);
     if (canEdit) restoreStash();
     await loadReports();
@@ -284,7 +487,9 @@
     clearStash();
     closeReport(true);
     hidePanels();
+    if (brandDraft) { brandDraft = null; applyBrand(brand); }
     $("#open-editor").hidden = true;
+    $("#open-brand").hidden = true;
     $("#open-access").hidden = true;
     $("#banner").hidden = true;
     $("#relatorios").hidden = true;
@@ -294,13 +499,20 @@
   }
 
   // ---------- Painéis laterais ----------
-  const PANELS = ["editor", "rel-panel", "access-panel"];
+  const PANELS = ["editor", "brand-panel", "rel-panel", "access-panel"];
   function showPanel(id) {
+    // Não troca de painel com uma aparência não publicada: ela se perderia sem aviso.
+    if (id !== "brand-panel" && brandDirty() && !$("#brand-panel").hidden) {
+      brandStatus("Publique ou descarte as mudanças de aparência antes de abrir outro painel.", "err", true);
+      return false;
+    }
+    if (id !== "brand-panel" && brandDraft) { brandDraft = null; applyBrand(brand); }
     PANELS.forEach((p) => { if (p !== id) $("#" + p).hidden = true; });
     $("#" + id).hidden = false;
     const wide = $("#" + id).classList.contains("editor-wide");
     $("#view-portal").classList.toggle("with-editor", !wide);
     $("#view-portal").classList.toggle("with-editor-wide", wide);
+    return true;
   }
   function hidePanels() {
     PANELS.forEach((p) => { $("#" + p).hidden = true; });
@@ -468,7 +680,7 @@
     disarmRelDelete();
     relStatus("");
     setRelBusy(false);
-    showPanel("rel-panel");
+    if (!showPanel("rel-panel")) return;
     $("#rel-title").focus();
   }
   function closeRelPanel() {
@@ -577,7 +789,7 @@
   }
   async function openAccessPanel() {
     if (!canEdit || relSetupMissing) return;
-    showPanel("access-panel");
+    if (!showPanel("access-panel")) return;
     $("#access-title").focus();
     $("#access-list").innerHTML = "";
     accessStatus("Carregando...");
@@ -707,11 +919,14 @@
     if (f.type === "check") return '<label class="check" for="' + id + '"><input type="checkbox" id="' + id + '" ' + data + (v ? " checked" : "") + "> " + esc(f.label) + "</label>";
     let ctl;
     if (f.type === "textarea") ctl = '<textarea id="' + id + '" ' + data + ' rows="4">' + esc(v) + "</textarea>";
-    else if (f.type === "select") ctl = '<select id="' + id + '" ' + data + ">" + f.options.map((o) => "<option" + (o === v ? " selected" : "") + ">" + esc(o) + "</option>").join("") + "</select>";
+    else if (f.type === "select") {
+      const opts = f.k === "grupo" && draft ? groupsOf(draft.produtos) : f.options;
+      ctl = '<select id="' + id + '" ' + data + ">" + opts.map((o) => "<option" + (o === v ? " selected" : "") + ">" + esc(o) + "</option>").join("") + "</select>";
+    }
     else ctl = '<input type="' + (f.type === "date" ? "date" : f.type === "url" ? "url" : "text") + '" id="' + id + '" ' + data + ' value="' + esc(v) + '"' + (f.type === "url" ? ' placeholder="https://"' : "") + ">";
     return '<div class="field"><label for="' + id + '">' + esc(f.label) + "</label>" + ctl + "</div>";
   }
-  function itemLabel(s, it, i) { return (it[s.req] || "").trim() || "Novo " + s.noun + " (" + (i + 1) + ")"; }
+  function itemLabel(s, it, i) { return (it[s.req] || "").trim() || "Item " + (i + 1) + " sem título"; }
   function renderTabs() {
     $("#ed-tabs").innerHTML = SCHEMA.map((s) =>
       '<button type="button" class="ed-tab" data-tab="' + s.key + '" aria-pressed="' + (s.key === edTab) + '">' + esc(s.label) + "</button>").join("");
@@ -737,8 +952,8 @@
   }
   function openEditor() {
     if (!canEdit || !state) return;
+    if (!showPanel("editor")) return;
     if (!draft) draft = clone(state);
-    showPanel("editor");
     renderTabs(); renderEdBody(); syncUi();
     $("#ed-title").focus();
   }
@@ -967,6 +1182,336 @@
     renderEdBody(); renderContent(state); syncUi();
     setStatus("Alterações descartadas.");
   });
+  // ---------- Aparência ----------
+  async function loadBrand() {
+    let r;
+    try { r = await sb.from("portal_marca").select("dados, atualizado_em").eq("id", 1).maybeSingle(); }
+    catch (_) { return; }
+    if (r.error) { brandSetupMissing = true; return; }
+    brandSetupMissing = false;
+    const raw = r.data ? r.data.dados : {};
+    brand = cleanBrand(raw);
+    brandLoadedAt = r.data ? r.data.atualizado_em : null;
+    writeBrandCache(raw);
+    if (!brandDraft) applyBrand(brand);
+  }
+  const BRAND_TABS = [
+    { k: "marca", label: "Marca e logos" },
+    { k: "cores", label: "Cores" },
+    { k: "tipografia", label: "Fontes e formato" },
+    { k: "empresa", label: "Informações da empresa" }
+  ];
+  const brandDirty = () => !!brandDraft && !same(brandDraft, brand);
+  function brandStatus(msg, kind, lock) {
+    const el = $("#brand-status");
+    el.textContent = msg || "";
+    el.className = "ed-status" + (kind ? " " + kind : "");
+    brandStatusLocked = !!lock;
+  }
+  function syncBrandUi() {
+    $("#brand-publish").disabled = brandBusy || brandSetupMissing || !brandDirty();
+    $("#brand-discard").disabled = brandBusy || !brandDirty();
+    $("#brand-close").textContent = brandDirty() ? "Fechar sem publicar" : "Fechar";
+    if (brandBusy || brandStatusLocked) return;
+    if (brandSetupMissing) brandStatus("A aparência ainda não foi ativada no banco. Rode supabase/marca.sql no SQL Editor do Supabase para poder publicar.", "err");
+    else brandStatus(brandDirty() ? "Prévia: só você está vendo estas mudanças até publicar." : "Nenhuma alteração.");
+  }
+  let brandPreviewTimer = 0;
+  function brandChanged() {
+    clearTimeout(brandPreviewTimer);
+    brandPreviewTimer = setTimeout(() => { if (brandDraft) applyBrand(brandDraft); }, 60);
+    if (!brandBusy) brandStatusLocked = false;
+    syncBrandUi();
+  }
+  function openBrandPanel() {
+    if (!canEdit) return;
+    if (!showPanel("brand-panel")) return;
+    brandDraft = clone(brand);
+    brandStatusLocked = false;
+    renderBrandTabs();
+    renderBrandBody();
+    syncBrandUi();
+    $("#brand-title").focus();
+  }
+  let brandCloseArmed = 0;
+  function closeBrandPanel(force) {
+    if (brandBusy) return;
+    const b = $("#brand-close");
+    if (brandDirty() && !force && !brandCloseArmed) {
+      b.textContent = "Confirmar: descartar e fechar";
+      brandCloseArmed = setTimeout(() => { brandCloseArmed = 0; syncBrandUi(); }, 4000);
+      return;
+    }
+    clearTimeout(brandCloseArmed); brandCloseArmed = 0;
+    brandDraft = null;
+    applyBrand(brand);
+    $("#brand-panel").hidden = true;
+    if (!anyPanelOpen()) hidePanels();
+    if (!$("#open-brand").hidden) $("#open-brand").focus();
+  }
+  function renderBrandTabs() {
+    $("#brand-tabs").innerHTML = BRAND_TABS.map((t) =>
+      '<button type="button" class="ed-tab" data-btab="' + t.k + '" aria-pressed="' + (t.k === brandTab) + '">' + esc(t.label) + "</button>").join("");
+  }
+  function inputField(id, label, attrs, value, hint, textarea) {
+    const ctl = textarea
+      ? "<textarea id=\"" + id + "\" " + attrs + ' rows="3">' + esc(value) + "</textarea>"
+      : "<input id=\"" + id + "\" " + attrs + ' value="' + esc(value) + '">';
+    return '<div class="field"><label for="' + id + '">' + esc(label) + "</label>" + ctl + (hint ? '<p class="field-hint">' + esc(hint) + "</p>" : "") + "</div>";
+  }
+  function logoField(k, label, hint, bg) {
+    return '<div class="field"><p class="field-label">' + esc(label) + "</p>" +
+      '<div class="logo-field"><div class="logo-preview ' + bg + '"><img src="' + esc(safeImg(brandDraft[k]) || DEFAULT_BRAND[k]) + '" alt=""></div>' +
+      '<div class="logo-actions"><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-logo-input="' + k + '" aria-label="Enviar ' + esc(label.toLowerCase()) + '">' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-logo-reset="' + k + '">Usar o logo do site da Copplasa</button></div></div>' +
+      '<p class="field-hint">' + esc(hint) + "</p></div>";
+  }
+  function colorWarnings(c) {
+    const w = {};
+    const ok = (k) => isHex(c[k]);
+    if (ok("principal") && ok("fundo") && contrast(c.principal, c.fundo) < 3) w.principal = "Pouco contraste com o fundo: botões e links ficam difíceis de ver.";
+    if (ok("texto") && ok("fundo") && contrast(c.texto, c.fundo) < 4.5) w.texto = "Pouco contraste com o fundo: o texto fica difícil de ler.";
+    else if (ok("texto") && ok("fundoSuave") && contrast(c.texto, c.fundoSuave) < 4.5) w.texto = "Pouco contraste com o fundo suave: o texto das faixas fica difícil de ler.";
+    if (ok("destaque") && ok("fundo") && contrast(c.destaque, c.fundo) < 3) w.destaque = "Pouco contraste com o fundo.";
+    return w;
+  }
+  function renderColorWarnings() {
+    const w = colorWarnings(brandDraft.cores);
+    document.querySelectorAll("[data-color-warn]").forEach((el) => {
+      const msg = w[el.dataset.colorWarn] || "";
+      el.textContent = msg;
+      el.hidden = !msg;
+    });
+  }
+  function listRows(listKey, fields, addLabel) {
+    const list = brandDraft.empresa[listKey];
+    return list.map((it, i) =>
+      '<div class="row-item"><div class="row-item-head"><span>' + esc(it[fields[0].k] || "Sem título") + "</span>" +
+      '<button type="button" class="btn btn-ghost btn-sm" data-list-remove="' + listKey + '" data-idx="' + i + '">Remover</button></div>' +
+      fields.map((f) => inputField("b-" + listKey + "-" + i + "-" + f.k, f.label, 'type="' + (f.url ? "url" : "text") + '" data-list="' + listKey + '" data-idx="' + i + '" data-f="' + f.k + '"' + (f.url ? ' placeholder="https://"' : ""), it[f.k] || "")).join("") +
+      "</div>").join("") +
+      '<button type="button" class="btn btn-ghost btn-sm ed-add" data-list-add="' + listKey + '">' + esc(addLabel) + "</button>";
+  }
+  function renderBrandBody() {
+    const b = brandDraft;
+    let html = "";
+    if (brandTab === "marca") {
+      html = inputField("b-nome", "Nome da empresa", 'type="text" maxlength="60" data-b="nome"', b.nome) +
+        inputField("b-portalNome", "Nome do portal", 'type="text" maxlength="60" data-b="portalNome"', b.portalNome, "Aparece no topo, na tela de login e na aba do navegador.") +
+        inputField("b-slogan", "Slogan", 'type="text" maxlength="120" data-b="slogan"', b.slogan) +
+        inputField("b-loginTexto", "Texto da tela de login", 'maxlength="300" data-b="loginTexto"', b.loginTexto, "", true) +
+        '<p class="ed-section-title">Logos</p>' +
+        logoField("logo", "Logo colorido", "Topo do portal, sobre fundo branco. PNG, SVG, JPG ou WEBP.", "on-light") +
+        logoField("logoClaro", "Logo branco", "Tela de login e rodapé, sobre fundo colorido.", "on-brand") +
+        logoField("icone", "Ícone da aba do navegador", "Imagem quadrada. É reduzida automaticamente.", "on-icon");
+    } else if (brandTab === "cores") {
+      html = COLOR_KEYS.map(({ k, nome, uso }) =>
+        '<div class="color-row"><input type="color" id="b-cor-' + k + '" data-color="' + k + '" value="' + esc((isHex(b.cores[k]) ? b.cores[k] : DEFAULT_BRAND.cores[k]).toLowerCase()) + '" aria-label="Cor ' + esc(nome.toLowerCase()) + '">' +
+        '<div class="color-name"><strong>' + esc(nome) + "</strong><span>" + esc(uso) + "</span></div>" +
+        '<input type="text" data-color-hex="' + k + '" value="' + esc(b.cores[k]) + '" maxlength="7" aria-label="Código da cor ' + esc(nome.toLowerCase()) + '">' +
+        '<p class="color-warn" data-color-warn="' + k + '" hidden></p></div>').join("") +
+        '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="cores">Restaurar as cores do site da Copplasa</button>';
+    } else if (brandTab === "tipografia") {
+      const opts = (list, v) => list.map((n) => '<option value="' + esc(n) + '"' + (n === v ? " selected" : "") + ">" + esc(n) + "</option>").join("");
+      html = '<div class="field"><label for="b-font-titulos">Fonte dos títulos</label><select id="b-font-titulos" data-font="titulos">' + opts(FONTS_TITULOS, b.fontes.titulos) + "</select>" +
+          '<p class="font-sample" style="font-family: var(--font-display); text-transform: var(--title-transform)">Gestão de benefícios e seguros</p></div>' +
+        '<div class="field"><label for="b-font-texto">Fonte dos textos</label><select id="b-font-texto" data-font="texto">' + opts(FONTS_TEXTO, b.fontes.texto) + "</select>" +
+          '<p class="font-sample" style="font-family: var(--font-body); font-size: 1rem">Comunicados, soluções e relatórios para clientes, parceiros e equipe.</p></div>' +
+        '<label class="check"><input type="checkbox" id="b-lower" data-b-check="titulosMinusculos"' + (b.titulosMinusculos ? " checked" : "") + "> Títulos em letras minúsculas, como no site da Copplasa</label>" +
+        '<div class="field"><p class="field-label">Formato dos botões e cartões</p><div class="radio-group">' +
+          Object.keys(FORMATOS).map((k) => '<label><input type="radio" name="b-formato" value="' + k + '"' + (b.formato === k ? " checked" : "") + "><span>" + esc(FORMATOS[k].nome) + "</span></label>").join("") +
+        "</div></div>" +
+        '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="tipografia">Restaurar fontes e formato do site da Copplasa</button>';
+    } else {
+      const e = b.empresa;
+      html = inputField("b-e-descricao", "Descrição curta (rodapé)", 'maxlength="300" data-e="descricao"', e.descricao, "", true) +
+        inputField("b-e-email", "E-mail", 'type="email" maxlength="120" data-e="email"', e.email) +
+        inputField("b-e-telefone", "Telefone", 'type="text" maxlength="30" data-e="telefone"', e.telefone, "Com DDD, por exemplo (11) 3000-0000.") +
+        inputField("b-e-whatsapp", "WhatsApp", 'type="text" maxlength="30" data-e="whatsapp"', e.whatsapp, "Com DDD. Deixe em branco para não mostrar.") +
+        inputField("b-e-site", "Site", 'type="url" maxlength="200" placeholder="https://" data-e="site"', e.site) +
+        '<p class="ed-section-title">Redes sociais</p>' +
+        Object.keys(SOCIAL).map((k) => inputField("b-r-" + k, SOCIAL[k].nome, 'type="url" maxlength="200" placeholder="https://" data-r="' + k + '"', (e.redes && e.redes[k]) || "")).join("") +
+        '<p class="ed-section-title">Unidades</p>' +
+        listRows("unidades", [{ k: "nome", label: "Nome" }, { k: "endereco", label: "Endereço" }, { k: "mapa", label: "Link do mapa (opcional)", url: true }], "Adicionar unidade") +
+        '<p class="ed-section-title">Links do rodapé</p>' +
+        listRows("links", [{ k: "titulo", label: "Título" }, { k: "url", label: "Endereço", url: true }], "Adicionar link") +
+        '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="empresa">Restaurar as informações do site da Copplasa</button>';
+    }
+    $("#brand-body").innerHTML = html;
+    if (brandTab === "cores") renderColorWarnings();
+  }
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    });
+  }
+  async function readImage(file, maxSide) {
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) throw new Error("tipo");
+    if (file.type === "image/svg+xml") {
+      if (file.size > 300 * 1024) throw new Error("grande");
+      return fileToDataUrl(file);
+    }
+    if (file.size > 10 * 1024 * 1024) throw new Error("grande");
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.max(1, Math.round(bmp.width * scale));
+    cv.height = Math.max(1, Math.round(bmp.height * scale));
+    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    let url = cv.toDataURL("image/png");
+    if (url.length > 450 * 1024) url = cv.toDataURL("image/webp", 0.9);
+    if (url.length > 450 * 1024) throw new Error("grande");
+    return url;
+  }
+  async function onLogoFile(input) {
+    const k = input.dataset.logoInput;
+    const file = input.files && input.files[0];
+    if (!file || !brandDraft) return;
+    brandStatus("Preparando a imagem...", "", true);
+    try {
+      brandDraft[k] = await readImage(file, k === "icone" ? 128 : 900);
+      brandStatusLocked = false;
+      renderBrandBody();
+      brandChanged();
+    } catch (e) {
+      brandStatus(e && e.message === "tipo" ? "Use uma imagem PNG, JPG, WEBP ou SVG."
+        : e && e.message === "grande" ? "A imagem é grande demais. Use um arquivo menor (SVG até 300 KB)."
+        : "Não foi possível ler essa imagem. Tente outro arquivo.", "err", true);
+      input.value = "";
+    }
+  }
+  function onBrandInput(e) {
+    const el = e.target;
+    if (!brandDraft || !el.dataset) return;
+    const d = el.dataset;
+    if (d.b) brandDraft[d.b] = el.value;
+    else if (d.e) brandDraft.empresa[d.e] = el.value.trim() === "" ? "" : el.value;
+    else if (d.r) brandDraft.empresa.redes[d.r] = el.value.trim();
+    else if (d.list) {
+      const it = brandDraft.empresa[d.list][+d.idx];
+      if (!it) return;
+      it[d.f] = el.value;
+      if (d.f === "nome" || d.f === "titulo") {
+        const head = el.closest(".row-item").querySelector(".row-item-head span");
+        if (head) head.textContent = el.value || "Sem título";
+      }
+    } else if (d.color) {
+      brandDraft.cores[d.color] = el.value.toUpperCase();
+      const hex = $('#brand-body [data-color-hex="' + d.color + '"]');
+      if (hex) hex.value = brandDraft.cores[d.color];
+      renderColorWarnings();
+    } else if (d.colorHex) {
+      let v = el.value.trim();
+      if (v && v[0] !== "#") v = "#" + v;
+      brandDraft.cores[d.colorHex] = v.toUpperCase();
+      if (isHex(v)) { const sw = $('#brand-body [data-color="' + d.colorHex + '"]'); if (sw) sw.value = v.toLowerCase(); }
+      renderColorWarnings();
+    } else if (d.font) brandDraft.fontes[d.font] = el.value;
+    else if (d.bCheck) brandDraft[d.bCheck] = el.checked;
+    else if (el.name === "b-formato") brandDraft.formato = el.value;
+    else if (d.logoInput) { if (e.type === "change") onLogoFile(el); return; }
+    else return;
+    brandChanged();
+  }
+  function validateBrand(b) {
+    for (const { k, nome } of COLOR_KEYS) {
+      if (!isHex(b.cores[k])) return { tab: "cores", id: null, msg: "O código da cor " + nome.toLowerCase() + " precisa estar no formato #RRGGBB, por exemplo #006CD1." };
+    }
+    if (!String(b.nome).trim()) return { tab: "marca", id: "b-nome", msg: "Preencha o nome da empresa." };
+    if (!String(b.portalNome).trim()) return { tab: "marca", id: "b-portalNome", msg: "Preencha o nome do portal." };
+    const e = b.empresa;
+    if (e.email && !/^\S+@\S+\.\S+$/.test(e.email)) return { tab: "empresa", id: "b-e-email", msg: "O e-mail não parece válido." };
+    const badUrl = (u) => u && !safeUrl(u);
+    if (badUrl(e.site)) return { tab: "empresa", id: "b-e-site", msg: "O site precisa começar com https://." };
+    for (const k of Object.keys(SOCIAL)) if (badUrl(e.redes[k])) return { tab: "empresa", id: "b-r-" + k, msg: "O link do " + SOCIAL[k].nome + " precisa começar com https://." };
+    for (let i = 0; i < e.unidades.length; i++) if (badUrl(e.unidades[i].mapa)) return { tab: "empresa", id: "b-unidades-" + i + "-mapa", msg: "O link do mapa da unidade " + (i + 1) + " precisa começar com https://." };
+    for (let i = 0; i < e.links.length; i++) {
+      if (!String(e.links[i].titulo || "").trim()) return { tab: "empresa", id: "b-links-" + i + "-titulo", msg: "Dê um título ao link " + (i + 1) + " do rodapé." };
+      if (!safeUrl(e.links[i].url)) return { tab: "empresa", id: "b-links-" + i + "-url", msg: "O link " + (i + 1) + " do rodapé precisa começar com https://." };
+    }
+    if (JSON.stringify(b).length > 1.5 * 1024 * 1024) return { tab: "marca", id: null, msg: "Os logos estão grandes demais. Use imagens menores." };
+    return null;
+  }
+  async function publishBrand() {
+    if (!brandDirty() || brandBusy || brandSetupMissing) return;
+    const problem = validateBrand(brandDraft);
+    if (problem) {
+      brandTab = problem.tab; renderBrandTabs(); renderBrandBody();
+      brandStatus(problem.msg, "err", true);
+      const el = problem.id && document.getElementById(problem.id);
+      if (el) { el.focus(); el.scrollIntoView({ block: "center" }); }
+      return;
+    }
+    brandBusy = true; syncBrandUi(); brandStatus("Publicando...", "", true);
+    try {
+      let q = sb.from("portal_marca").update({ dados: brandDraft }).eq("id", 1);
+      if (brandLoadedAt) q = q.eq("atualizado_em", brandLoadedAt);
+      const { data, error } = await q.select("dados, atualizado_em");
+      if (error) throw error;
+      brandBusy = false;
+      if (!data || !data.length) {
+        brandStatus("Não foi possível publicar: outra pessoa publicou uma aparência mais nova ou seu acesso não permite. Recarregue a página e tente de novo.", "err", true);
+        syncBrandUi();
+        return;
+      }
+      brand = cleanBrand(data[0].dados);
+      brandLoadedAt = data[0].atualizado_em;
+      writeBrandCache(data[0].dados);
+      brandStatusLocked = false;
+      closeBrandPanel(true);
+      toast("Aparência publicada.");
+    } catch (_) {
+      brandBusy = false;
+      brandStatus("Não foi possível publicar. Verifique sua conexão e tente de novo; suas alterações continuam aqui.", "err", true);
+      syncBrandUi();
+    }
+  }
+
+  $("#open-brand").addEventListener("click", openBrandPanel);
+  $("#brand-close").addEventListener("click", () => closeBrandPanel(false));
+  $("#brand-publish").addEventListener("click", publishBrand);
+  $("#brand-tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-btab]");
+    if (!b) return;
+    brandTab = b.dataset.btab; renderBrandTabs(); renderBrandBody();
+  });
+  $("#brand-body").addEventListener("input", onBrandInput);
+  $("#brand-body").addEventListener("change", onBrandInput);
+  $("#brand-body").addEventListener("click", (e) => {
+    if (!brandDraft) return;
+    const t = e.target.closest("[data-logo-reset], [data-list-add], [data-list-remove], [data-reset]");
+    if (!t) return;
+    const d = t.dataset;
+    if (d.logoReset) brandDraft[d.logoReset] = DEFAULT_BRAND[d.logoReset];
+    else if (d.listAdd) brandDraft.empresa[d.listAdd].push(d.listAdd === "unidades" ? { nome: "", endereco: "", mapa: "" } : { titulo: "", url: "" });
+    else if (d.listRemove) brandDraft.empresa[d.listRemove].splice(+d.idx, 1);
+    else if (d.reset === "cores") brandDraft.cores = clone(DEFAULT_BRAND.cores);
+    else if (d.reset === "tipografia") { brandDraft.fontes = clone(DEFAULT_BRAND.fontes); brandDraft.titulosMinusculos = DEFAULT_BRAND.titulosMinusculos; brandDraft.formato = DEFAULT_BRAND.formato; }
+    else if (d.reset === "empresa") brandDraft.empresa = clone(DEFAULT_BRAND.empresa);
+    renderBrandBody();
+    brandChanged();
+  });
+  let brandDiscardArmed = 0;
+  $("#brand-discard").addEventListener("click", () => {
+    const b = $("#brand-discard");
+    if (!brandDiscardArmed) {
+      b.textContent = "Confirmar descarte";
+      b.classList.add("btn-danger");
+      brandDiscardArmed = setTimeout(() => { brandDiscardArmed = 0; b.textContent = "Descartar alterações"; b.classList.remove("btn-danger"); }, 4000);
+      return;
+    }
+    clearTimeout(brandDiscardArmed); brandDiscardArmed = 0;
+    b.textContent = "Descartar alterações"; b.classList.remove("btn-danger");
+    brandDraft = clone(brand);
+    applyBrand(brand);
+    brandStatusLocked = false;
+    renderBrandBody(); syncBrandUi();
+    brandStatus("Alterações descartadas.");
+  });
+
   // ---------- Eventos: relatórios e acessos ----------
   $("#rel-new").addEventListener("click", () => openRelPanel(null));
   $("#rel-list").addEventListener("click", (e) => {
@@ -1002,6 +1547,7 @@
     if (e.key !== "Escape") return;
     if (!$("#viewer").hidden) closeReport(false);
     else if (!$("#editor").hidden) closeEditor();
+    else if (!$("#brand-panel").hidden) closeBrandPanel(false);
     else if (!$("#rel-panel").hidden) closeRelPanel();
     else if (!$("#access-panel").hidden) $("#access-close").click();
   });
@@ -1012,6 +1558,7 @@
     sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
+    loadBrand();
     sb.auth.onAuthStateChange((event, s) => {
       if (event === "SIGNED_OUT") {
         if (session) { resetPortal(); showForm("login"); formMsg("login", "Sua sessão terminou. Entre de novo.", ""); }
@@ -1031,5 +1578,6 @@
     if (s) enterPortal(s);
     else showForm("login");
   }
+  applyBrand(brand);
   boot();
 })();

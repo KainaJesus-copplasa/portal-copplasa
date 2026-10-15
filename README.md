@@ -34,7 +34,25 @@ Pelo site, quem é editor:
 
 Os relatórios abrem dentro do site, isolados da sessão de login, com gráficos, filtros e downloads funcionando.
 
-## 3. Publicar no GitHub Pages
+## 3. Ativar a aparência editável
+
+No **SQL Editor**, cole e rode [`supabase/marca.sql`](supabase/marca.sql). Ele:
+
+- cria o registro da aparência do portal (logo, cores, fontes, formato e informações da empresa), que todos leem, inclusive na tela de login, e só editores alteram;
+- troca as seções "Soluções" e "Contatos" pelas informações do site copplasa.com.br, **apenas** se elas ainda estiverem com o conteúdo de exemplo original.
+
+A aparência padrão segue o site da Copplasa: azul `#006CD1`, ciano `#00D1CE`, magenta `#D1006C`, texto `#4D4D4D`, títulos em EB Garamond (minúsculas) e textos em Lato, botões arredondados. Os logos padrão ficam em `assets/marca/`.
+
+Pelo site, quem é editor clica em **Aparência** e muda:
+
+- **Marca e logos:** nome da empresa e do portal, slogan, texto da tela de login, logo colorido, logo branco e ícone da aba;
+- **Cores:** sete cores, com aviso quando o contraste fica baixo;
+- **Fontes e formato:** fonte dos títulos e dos textos, títulos em minúsculas e formato dos botões e cartões;
+- **Informações da empresa:** descrição, e-mail, telefone, WhatsApp, site, redes sociais, unidades e links do rodapé.
+
+As mudanças aparecem como prévia só para quem está editando e passam a valer para todos ao clicar em **Publicar**. Cada seção tem um botão para voltar ao padrão do site da Copplasa.
+
+## 4. Publicar no GitHub Pages
 
 1. Envie estes arquivos para um repositório no GitHub (ex.: `portal-copplasa`).
 2. Em **Settings > Pages**, escolha **Deploy from a branch**, branch `main`, pasta `/ (root)`.
@@ -42,7 +60,7 @@ Os relatórios abrem dentro do site, isolados da sessão de login, com gráficos
 
 No plano gratuito do GitHub, o repositório precisa ser público para usar o Pages. Isso expõe só o código; o conteúdo e os usuários ficam no Supabase, protegidos por login.
 
-## 4. Cadastrar pessoas
+## 5. Cadastrar pessoas
 
 - **Criar acesso:** Supabase > **Authentication > Users > Add user > Create new user**. Informe e-mail e senha e marque **Auto Confirm User**. Passe a senha à pessoa por um canal seguro; ela pode trocá-la em "Alterar senha" depois de entrar.
 - **Definir o que a pessoa vê:** no site, botão **Acessos** (equipe, cliente de uma empresa ou só o portal).
@@ -63,10 +81,12 @@ O GitHub Pages deixa o navegador guardar os arquivos por até 10 minutos. Ao mud
 | Arquivo | Para que serve |
 | --- | --- |
 | `index.html` | Telas de login e do portal |
-| `assets/app.js` | Login, leitura do conteúdo e editor |
+| `assets/app.js` | Login, conteúdo, relatórios, acessos e aparência |
 | `assets/styles.css` | Visual do site |
+| `assets/marca/` | Logos e ícone padrão da Copplasa (do site copplasa.com.br) |
 | `assets/vendor/` | Biblioteca oficial do Supabase (`@supabase/supabase-js` 2.45.4) |
 | `config.js` | Endereço e chave pública do projeto Supabase |
 | `supabase/setup.sql` | Tabelas, regras de acesso e conteúdo inicial |
 | `supabase/relatorios.sql` | Empresas, acessos, relatórios e bucket privado dos arquivos |
+| `supabase/marca.sql` | Aparência editável e conteúdo alinhado ao site da Copplasa |
 | `supabase/tornar-editor.sql` | Dá permissão de edição a uma pessoa |

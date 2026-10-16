@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/publicar_relatorio.py *)",
+      "Bash(/home/user/placement-copplasa.github.io/scripts/publicar_relatorio.py *)",
+      "Bash(git pull origin main)"
+    ]
+  }
+}

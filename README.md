@@ -36,6 +36,17 @@ Pelo site, quem é editor:
 
 Relatório por **link** abre a página original em nova aba, sempre na versão mais recente; quem abre precisa ter acesso a essa página (no Claude, pelo botão Compartilhar do relatório). Relatório por **arquivo** abre dentro do site, isolado da sessão de login, com gráficos, filtros e downloads funcionando, e só muda quando alguém envia um arquivo novo.
 
+### Atualização automática dos relatórios (robô)
+
+Uma rotina diária no Claude pega a versão mais recente de cada relatório (artefato do Claude) e publica no portal como arquivo, no lugar do anterior. Quem usa o portal nunca vê o link do artefato e não precisa de conta no Claude.
+
+1. No Supabase, crie um login só para o robô (Authentication > Users > Add user, com **Auto Confirm User**).
+2. Rode [`supabase/relatorios.sql`](supabase/relatorios.sql) (cria o papel do robô) e depois [`supabase/tornar-robo.sql`](supabase/tornar-robo.sql) com o e-mail do robô.
+3. No ambiente de nuvem do Claude (seta ao lado do título da sessão > Edit cloud environment), em **Environment variables**, defina `PORTAL_ROBO_EMAIL` e `PORTAL_ROBO_SENHA`.
+4. A rotina roda [`scripts/publicar_relatorio.py`](scripts/publicar_relatorio.py) para cada relatório: `python3 scripts/publicar_relatorio.py --arquivo relatorio.html --relatorio "Título no portal"`.
+
+O robô vê todos os relatórios, envia arquivos novos e apaga só arquivos que nenhum relatório usa mais; não cria, não apaga nem renomeia relatórios, e não mexe em conteúdo, aparência ou acessos. Se uma atualização falhar, o relatório continua com a versão anterior.
+
 ## 3. Ativar a aparência editável
 
 No **SQL Editor**, cole e rode [`supabase/marca.sql`](supabase/marca.sql). Ele:
@@ -58,7 +69,7 @@ As mudanças aparecem como prévia só para quem está editando e passam a valer
 
 1. Envie estes arquivos para um repositório no GitHub (ex.: `portal-copplasa`).
 2. Em **Settings > Pages**, escolha **Deploy from a branch**, branch `main`, pasta `/ (root)`.
-3. Em alguns minutos o site fica no ar em `https://<usuario>.github.io/portal-copplasa/`.
+3. Em alguns minutos o site fica no ar. Com o repositório chamado `<usuario>.github.io`, o endereço é `https://<usuario>.github.io/` (o portal da Copplasa está em https://placement-copplasa.github.io/).
 
 No plano gratuito do GitHub, o repositório precisa ser público para usar o Pages. Isso expõe só o código; o conteúdo e os usuários ficam no Supabase, protegidos por login.
 
@@ -92,3 +103,5 @@ O GitHub Pages deixa o navegador guardar os arquivos por até 10 minutos. Ao mud
 | `supabase/relatorios.sql` | Grupos, acessos, relatórios (com vários grupos por relatório) e bucket privado dos arquivos |
 | `supabase/marca.sql` | Aparência editável e contatos alinhados ao site da Copplasa |
 | `supabase/tornar-editor.sql` | Dá permissão de edição a uma pessoa |
+| `supabase/tornar-robo.sql` | Registra o login do robô de atualização automática |
+| `scripts/publicar_relatorio.py` | Publica a versão nova de um relatório no portal (usado pela rotina diária) |

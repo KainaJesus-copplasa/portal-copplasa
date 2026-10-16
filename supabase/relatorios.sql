@@ -12,6 +12,8 @@
 --   * Relatório sem grupo é interno: só a equipe vê.
 --   * Um relatório pode ser um arquivo .html guardado aqui ou um link para
 --     a página original (por exemplo, um relatório publicado no Claude).
+--   * O robô de atualização automática (tabela portal_robos) vê todos os
+--     relatórios e só pode trocar o arquivo deles por uma versão nova.
 --   * Só editores publicam, trocam ou apagam relatórios e definem acessos.
 --   * Os arquivos ficam num bucket privado; o download segue as mesmas regras.
 -- =====================================================================
@@ -27,6 +29,12 @@ create table if not exists public.portal_perfis (
   equipe boolean not null default false,
   empresa_id uuid references public.portal_empresas (id) on delete set null,
   atualizado_em timestamptz not null default now()
+);
+
+-- Logins do robô que atualiza os arquivos dos relatórios automaticamente
+create table if not exists public.portal_robos (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  criado_em timestamptz not null default now()
 );
 
 create table if not exists public.portal_relatorios (
@@ -63,11 +71,13 @@ alter table public.portal_empresas enable row level security;
 alter table public.portal_perfis enable row level security;
 alter table public.portal_relatorios enable row level security;
 alter table public.portal_relatorio_grupos enable row level security;
+alter table public.portal_robos enable row level security;
 
 revoke all on public.portal_empresas from anon, authenticated;
 revoke all on public.portal_perfis from anon, authenticated;
 revoke all on public.portal_relatorios from anon, authenticated;
 revoke all on public.portal_relatorio_grupos from anon, authenticated;
+revoke all on public.portal_robos from anon, authenticated;
 grant select, insert, delete on public.portal_relatorio_grupos to authenticated;
 grant select, insert, delete on public.portal_empresas to authenticated;
 grant update (nome) on public.portal_empresas to authenticated;
@@ -85,7 +95,18 @@ security definer
 set search_path = ''
 as $$
   select exists (select 1 from public.portal_perfis where user_id = auth.uid() and equipe)
-      or exists (select 1 from public.portal_editores where user_id = auth.uid());
+      or exists (select 1 from public.portal_editores where user_id = auth.uid())
+      or exists (select 1 from public.portal_robos where user_id = auth.uid());
+$$;
+
+create or replace function public.portal_eh_robo()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.portal_robos where user_id = auth.uid());
 $$;
 
 create or replace function public.portal_minha_empresa()
@@ -99,6 +120,8 @@ as $$
 $$;
 
 revoke all on function public.portal_eh_equipe() from public, anon;
+revoke all on function public.portal_eh_robo() from public, anon;
+grant execute on function public.portal_eh_robo() to authenticated;
 revoke all on function public.portal_minha_empresa() from public, anon;
 grant execute on function public.portal_eh_equipe() to authenticated;
 grant execute on function public.portal_minha_empresa() to authenticated;
@@ -233,6 +256,7 @@ create policy "Relatorios: baixar conforme acesso" on storage.objects for select
     bucket_id = 'relatorios'
     and (
       (select public.portal_eh_editor())
+      or (select public.portal_eh_robo())
       or exists (select 1 from public.portal_relatorios r where r.arquivo = storage.objects.name)
     )
   );
@@ -246,6 +270,48 @@ create policy "Relatorios: editores substituem" on storage.objects for update to
 drop policy if exists "Relatorios: editores apagam" on storage.objects;
 create policy "Relatorios: editores apagam" on storage.objects for delete to authenticated
   using (bucket_id = 'relatorios' and (select public.portal_eh_editor()));
+
+-- ---------- Robô de atualização automática ----------
+-- Envia arquivos novos e apaga só arquivos que nenhum relatório usa mais.
+drop policy if exists "Relatorios: robo envia" on storage.objects;
+create policy "Relatorios: robo envia" on storage.objects for insert to authenticated
+  with check (bucket_id = 'relatorios' and (select public.portal_eh_robo()));
+drop policy if exists "Relatorios: robo apaga sobras" on storage.objects;
+create policy "Relatorios: robo apaga sobras" on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'relatorios'
+    and (select public.portal_eh_robo())
+    and not exists (select 1 from public.portal_relatorios r where r.arquivo = storage.objects.name)
+  );
+
+-- Aponta o relatório para o arquivo novo e devolve o nome do arquivo antigo.
+create or replace function public.portal_robo_trocar_arquivo(p_relatorio uuid, p_arquivo text, p_tamanho bigint)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_antigo text;
+begin
+  if not public.portal_eh_robo() then
+    raise exception 'Sem permissão para atualizar relatórios' using errcode = '42501';
+  end if;
+  if not exists (select 1 from storage.objects where bucket_id = 'relatorios' and name = p_arquivo) then
+    raise exception 'Arquivo novo não encontrado' using errcode = 'P0002';
+  end if;
+  select arquivo into v_antigo from public.portal_relatorios where id = p_relatorio for update;
+  if not found then
+    raise exception 'Relatório não encontrado' using errcode = 'P0002';
+  end if;
+  update public.portal_relatorios
+    set arquivo = p_arquivo, tamanho = p_tamanho, url = null
+    where id = p_relatorio;
+  return v_antigo;
+end;
+$$;
+revoke all on function public.portal_robo_trocar_arquivo(uuid, text, bigint) from public, anon;
+grant execute on function public.portal_robo_trocar_arquivo(uuid, text, bigint) to authenticated;
 
 -- ---------- Atualizações ----------
 -- Relatórios publicados antes dos grupos múltiplos: passa o grupo único

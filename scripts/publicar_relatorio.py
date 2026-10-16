@@ -2,7 +2,11 @@
 """Publica no portal a versão nova de um relatório (.html), no lugar do arquivo atual.
 
 Uso:
-    python3 scripts/publicar_relatorio.py --arquivo relatorio.html --relatorio "Placement Analytics"
+    python3 scripts/publicar_relatorio.py --listar
+        lista, em JSON (um por linha), os relatórios com cópia automática:
+        {"id": ..., "titulo": ..., "fonte": link do artefato}
+    python3 scripts/publicar_relatorio.py --arquivo relatorio.html --relatorio-id <id>
+    python3 scripts/publicar_relatorio.py --arquivo relatorio.html --relatorio "Título no portal"
 
 Entra no portal com o login do robô (variáveis de ambiente PORTAL_ROBO_EMAIL e
 PORTAL_ROBO_SENHA), envia o arquivo para o bucket privado, aponta o relatório para
@@ -97,17 +101,32 @@ def entrar(base, chave):
     return {"apikey": chave, "Authorization": f"Bearer {token}"}
 
 
-def achar_relatorio(base, auth, titulo):
-    filtro = urllib.parse.quote(titulo, safe="")
-    status, dados = pedir("GET", f"{base}/rest/v1/portal_relatorios?select=id,titulo,arquivo&titulo=eq.{filtro}", auth, timeout=30)
+def consultar(base, auth, filtro):
+    status, dados = pedir("GET", f"{base}/rest/v1/portal_relatorios?select=id,titulo,arquivo,fonte_url&{filtro}", auth, timeout=30)
     if status != 200:
         raise Falha(f"não foi possível consultar os relatórios (HTTP {status}): {json_ou_texto(dados)}")
-    lista = json_ou_texto(dados)
+    return json_ou_texto(dados)
+
+
+def achar_relatorio(base, auth, titulo=None, rel_id=None):
+    if rel_id:
+        lista = consultar(base, auth, "id=eq." + urllib.parse.quote(rel_id, safe=""))
+        alvo = f"id {rel_id}"
+    else:
+        lista = consultar(base, auth, "titulo=eq." + urllib.parse.quote(titulo, safe=""))
+        alvo = f'título "{titulo}"'
     if not lista:
-        raise Falha(f'nenhum relatório com o título "{titulo}" no portal (o robô precisa estar registrado e o título igual ao do portal)')
+        raise Falha(f"nenhum relatório com {alvo} no portal (o robô precisa estar registrado)")
     if len(lista) > 1:
-        raise Falha(f'há {len(lista)} relatórios com o título "{titulo}"; deixe o título único no portal')
+        raise Falha(f"há {len(lista)} relatórios com {alvo}; deixe o título único no portal")
     return lista[0]
+
+
+def listar():
+    base, chave = carregar_config()
+    auth = entrar(base, chave)
+    return [{"id": r["id"], "titulo": r["titulo"], "fonte": r["fonte_url"]}
+            for r in consultar(base, auth, "fonte_url=not.is.null&order=titulo")]
 
 
 def apagar_arquivo(base, auth, nome):
@@ -117,11 +136,11 @@ def apagar_arquivo(base, auth, nome):
     return status == 200, dados
 
 
-def publicar(caminho, titulo):
+def publicar(caminho, titulo=None, rel_id=None):
     conteudo = ler_relatorio(caminho)
     base, chave = carregar_config()
     auth = entrar(base, chave)
-    relatorio = achar_relatorio(base, auth, titulo)
+    relatorio = achar_relatorio(base, auth, titulo, rel_id)
 
     novo = f"{uuid.uuid4()}.html"
     status, dados = pedir("POST", f"{base}/storage/v1/object/{BUCKET}/{novo}",
@@ -149,13 +168,21 @@ def publicar(caminho, titulo):
 
 def main():
     p = argparse.ArgumentParser(description="Publica a versão nova de um relatório no portal.")
-    p.add_argument("--arquivo", required=True, help="caminho do .html com a versão nova")
-    p.add_argument("--relatorio", required=True, help="título do relatório no portal")
+    p.add_argument("--listar", action="store_true", help="lista os relatórios com cópia automática")
+    p.add_argument("--arquivo", help="caminho do .html com a versão nova")
+    p.add_argument("--relatorio", help="título do relatório no portal")
+    p.add_argument("--relatorio-id", help="id do relatório no portal")
     args = p.parse_args()
     try:
-        print("OK: " + publicar(args.arquivo, args.relatorio))
+        if args.listar:
+            for item in listar():
+                print(json.dumps(item, ensure_ascii=False))
+            return
+        if not args.arquivo or not (args.relatorio or args.relatorio_id):
+            p.error("informe --arquivo e --relatorio-id (ou --relatorio), ou use --listar")
+        print("OK: " + publicar(args.arquivo, args.relatorio, args.relatorio_id))
     except Falha as e:
-        print(f'ERRO: "{args.relatorio}": {e}', file=sys.stderr)
+        print(f'ERRO: "{args.relatorio or args.relatorio_id or "listar"}": {e}', file=sys.stderr)
         sys.exit(1)
 
 

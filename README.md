@@ -38,14 +38,16 @@ Relatório por **link** abre a página original em nova aba, sempre na versão m
 
 ### Atualização automática dos relatórios (robô)
 
-Uma rotina diária no Claude pega a versão mais recente de cada relatório (artefato do Claude) e publica no portal como arquivo, no lugar do anterior. Quem usa o portal nunca vê o link do artefato e não precisa de conta no Claude.
+Uma rotina diária no Claude (todo dia às 14h, horário de Brasília) pega a versão mais recente de cada relatório com **cópia automática** e publica no portal como arquivo, no lugar do anterior. Quem usa o portal nunca vê o link do artefato e não precisa de conta no Claude.
+
+Para um relatório entrar na rotina, no portal clique em **Publicar relatório** (ou **Editar**), escolha **Cópia automática de um artefato do Claude** e cole o link do artefato. Para tirar da rotina, edite e escolha outra forma de publicar.
 
 1. No Supabase, crie um login só para o robô (Authentication > Users > Add user, com **Auto Confirm User**).
 2. Rode [`supabase/relatorios.sql`](supabase/relatorios.sql) (cria o papel do robô) e depois [`supabase/tornar-robo.sql`](supabase/tornar-robo.sql) com o e-mail do robô.
 3. No ambiente de nuvem do Claude (seta ao lado do título da sessão > Edit cloud environment), em **Environment variables**, defina `PORTAL_ROBO_EMAIL` e `PORTAL_ROBO_SENHA`.
-4. A rotina roda [`scripts/publicar_relatorio.py`](scripts/publicar_relatorio.py) para cada relatório: `python3 scripts/publicar_relatorio.py --arquivo relatorio.html --relatorio "Título no portal"`.
+4. A rotina lista os relatórios com cópia automática (`python3 scripts/publicar_relatorio.py --listar`), lê cada artefato e publica com `python3 scripts/publicar_relatorio.py --arquivo relatorio.html --relatorio-id <id>`.
 
-O robô vê todos os relatórios, envia arquivos novos e apaga só arquivos que nenhum relatório usa mais; não cria, não apaga nem renomeia relatórios, e não mexe em conteúdo, aparência ou acessos. Se uma atualização falhar, o relatório continua com a versão anterior.
+O robô vê todos os relatórios, envia arquivos novos, troca o arquivo só dos relatórios com cópia automática e apaga só arquivos que nenhum relatório usa mais; não cria, não apaga nem renomeia relatórios, e não mexe em conteúdo, aparência ou acessos. Se uma atualização falhar, o relatório continua com a versão anterior.
 
 ## 3. Ativar a aparência editável
 

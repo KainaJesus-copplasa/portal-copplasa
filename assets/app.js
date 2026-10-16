@@ -50,6 +50,10 @@
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
     return m ? m[3] + "/" + m[2] + "/" + m[1] : "";
   }
+  function fmtDateTime(ts) {
+    const d = ts ? new Date(ts) : null;
+    return d && !isNaN(d) ? d.toLocaleDateString("pt-BR") + " às " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+  }
   function fmtTimestamp(ts) {
     const d = ts ? new Date(ts) : null;
     return d && !isNaN(d) ? d.toLocaleDateString("pt-BR") : "";
@@ -287,6 +291,7 @@
   let relSetupMissing = false;
   let multiGroups = true; // false enquanto o banco ainda não tem a tabela de grupos por relatório
   let linkSupport = true; // false enquanto o banco ainda não aceita relatório por link
+  let autoSupport = true; // false enquanto o banco ainda não aceita cópia automática
   let relEditing = null;
   let relBusy = false;
   let viewerToken = 0;
@@ -464,9 +469,10 @@
     let rel, eq;
     // Do banco mais novo para o mais antigo: link + vários grupos, só vários grupos, modelo original.
     const tentativas = [
-      { campos: REL_FIELDS + ", url, grupos:portal_relatorio_grupos(empresa_id)", grupos: true, link: true },
-      { campos: REL_FIELDS + ", grupos:portal_relatorio_grupos(empresa_id)", grupos: true, link: false },
-      { campos: REL_FIELDS, grupos: false, link: false }
+      { campos: REL_FIELDS + ", url, fonte_url, grupos:portal_relatorio_grupos(empresa_id)", grupos: true, link: true, auto: true },
+      { campos: REL_FIELDS + ", url, grupos:portal_relatorio_grupos(empresa_id)", grupos: true, link: true, auto: false },
+      { campos: REL_FIELDS + ", grupos:portal_relatorio_grupos(empresa_id)", grupos: true, link: false, auto: false },
+      { campos: REL_FIELDS, grupos: false, link: false, auto: false }
     ];
     try {
       eq = sb.rpc("portal_eh_equipe");
@@ -474,6 +480,7 @@
         rel = await sb.from("portal_relatorios").select(t.campos).order("publicado_em", { ascending: false });
         multiGroups = t.grupos;
         linkSupport = t.link;
+        autoSupport = t.auto;
         if (!rel.error) break;
       }
       eq = await eq;
@@ -514,7 +521,10 @@
         : r.grupoIds.length ? '<span class="chips">' + r.grupoIds.map((id) => '<span class="chip">' + esc(groupName(id)) + "</span>").join("") + "</span>"
         : '<span><span class="chip chip-solid">Somente equipe</span></span>';
       const link = safeUrl(r.url);
-      const meta = link
+      const meta = r.fonte_url
+        ? (r.arquivo ? "Cópia automática diária · atualizado em " + fmtDateTime(r.publicado_em) + (r.tamanho ? " · " + fmtSize(r.tamanho) : "")
+                     : "Cópia automática · aguardando a primeira atualização")
+        : link
         ? "Página online, sempre na versão mais recente · " + hostOf(link)
         : "Atualizado em " + fmtTimestamp(r.publicado_em) + (r.tamanho ? " · " + fmtSize(r.tamanho) : "");
       const abrir = link
@@ -610,12 +620,22 @@
     $("#rel-delete").textContent = "Excluir relatório";
     $("#rel-delete").classList.remove("btn-danger");
   }
-  const relTipo = () => (linkSupport ? ((document.querySelector('input[name="rel-tipo"]:checked') || {}).value || "link") : "arquivo");
+  const AUTO_URL = /^https:\/\/claude\.ai\/(code\/)?artifact\/\S+$/i;
+  function relTipo() {
+    if (!linkSupport) return "arquivo";
+    const v = (document.querySelector('input[name="rel-tipo"]:checked') || {}).value || "link";
+    return v === "auto" && !autoSupport ? "link" : v;
+  }
   function updateRelTipo() {
     const tipo = relTipo();
     const r = relEditing;
     $("#rel-tipo-field").hidden = !linkSupport;
-    $("#rel-link-field").hidden = tipo !== "link";
+    $("#rel-tipo-auto").hidden = !autoSupport;
+    $("#rel-link-field").hidden = tipo !== "link" && tipo !== "auto";
+    $("#rel-url-label").textContent = tipo === "auto" ? "Link do artefato do Claude" : "Link do relatório";
+    $("#rel-url-hint").textContent = tipo === "auto"
+      ? "Todo dia às 14h o robô copia a versão mais recente deste artefato para o portal. Quem usa o portal vê a cópia, sem precisar de conta no Claude e sem ver este link."
+      : "Cole o endereço da página original. Abrir relatório leva direto para ela, sempre na versão mais recente. Cada pessoa precisa ter acesso a esse link: no Claude, compartilhe o relatório com ela pelo botão Compartilhar.";
     $("#rel-file-field").hidden = tipo !== "arquivo";
     const trocaArquivo = r && r.arquivo && tipo === "arquivo";
     $("#rel-arquivo-label").textContent = trocaArquivo ? "Substituir arquivo (opcional)" : "Arquivo do relatório (.html)";
@@ -643,8 +663,8 @@
       ? "Marque os grupos que podem ver. Sem nenhum marcado, o relatório é interno. A equipe Copplasa e os editores sempre veem todos."
       : "Para liberar um relatório para mais de um grupo, rode de novo o arquivo supabase/relatorios.sql no Supabase.";
     $("#rel-arquivo").value = "";
-    $("#rel-url").value = r && r.url ? r.url : "";
-    const tipoInicial = r ? (r.url ? "link" : "arquivo") : "link";
+    $("#rel-url").value = r ? (r.fonte_url || r.url || "") : "";
+    const tipoInicial = r ? (r.fonte_url ? "auto" : r.url ? "link" : "arquivo") : (autoSupport ? "auto" : "link");
     document.querySelectorAll('input[name="rel-tipo"]').forEach((el) => { el.checked = el.value === tipoInicial; });
     updateRelTipo();
     $("#rel-delete-zone").hidden = !r;
@@ -683,6 +703,7 @@
     const url = $("#rel-url").value.trim();
     if (!titulo) { relStatus("Dê um título ao relatório.", "err"); $("#rel-titulo").focus(); return; }
     if (tipo === "link" && !/^https:\/\/\S+$/i.test(url)) { relStatus("Cole o link completo do relatório, começando com https://.", "err"); $("#rel-url").focus(); return; }
+    if (tipo === "auto" && !AUTO_URL.test(url)) { relStatus("Cole o link de um artefato do Claude, como https://claude.ai/artifact/...", "err"); $("#rel-url").focus(); return; }
     if (tipo === "arquivo" && !file && !(relEditing && relEditing.arquivo)) { relStatus("Escolha o arquivo .html do relatório.", "err"); $("#rel-arquivo").focus(); return; }
     if (file) {
       if (!/\.html?$/i.test(file.name)) { relStatus("O arquivo precisa ser uma página .html.", "err"); return; }
@@ -703,6 +724,11 @@
       relStatus("Salvando...");
       const fields = { titulo, descricao, empresa_id: multiGroups ? null : (escolhidos[0] || null) };
       if (tipo === "link") { fields.url = url; fields.arquivo = null; fields.tamanho = null; }
+      if (tipo === "auto") {
+        fields.fonte_url = url;
+        // Até a primeira cópia do robô, o relatório abre pelo link do artefato.
+        if (!editing || !editing.arquivo) { fields.url = url; fields.arquivo = null; fields.tamanho = null; }
+      } else if (autoSupport) fields.fonte_url = null;
       if (newPath) { fields.arquivo = newPath; fields.tamanho = file.size; if (linkSupport) fields.url = null; }
       const res = editing
         ? await sb.from("portal_relatorios").update(fields).eq("id", editing.id).select("id")

@@ -12,8 +12,10 @@
 --   * Relatório sem grupo é interno: só a equipe vê.
 --   * Um relatório pode ser um arquivo .html guardado aqui ou um link para
 --     a página original (por exemplo, um relatório publicado no Claude).
+--   * Relatório com "cópia automática" (fonte_url) guarda o link de um artefato
+--     do Claude; todo dia o robô copia a versão mais recente dele para cá.
 --   * O robô de atualização automática (tabela portal_robos) vê todos os
---     relatórios e só pode trocar o arquivo deles por uma versão nova.
+--     relatórios e só pode trocar o arquivo dos que têm cópia automática.
 --   * Só editores publicam, trocam ou apagam relatórios e definem acessos.
 --   * Os arquivos ficam num bucket privado; o download segue as mesmas regras.
 -- =====================================================================
@@ -59,6 +61,13 @@ alter table public.portal_relatorios add constraint portal_relatorios_arquivo_ou
   or (arquivo is null and url is not null and url ~ '^https://[^[:space:]]+$')
 );
 
+-- Cópia automática: link do artefato de onde o robô copia a versão mais recente
+alter table public.portal_relatorios add column if not exists fonte_url text;
+alter table public.portal_relatorios drop constraint if exists portal_relatorios_fonte_https;
+alter table public.portal_relatorios add constraint portal_relatorios_fonte_https check (
+  fonte_url is null or fonte_url ~ '^https://[^[:space:]]+$'
+);
+
 -- Grupos que podem ver cada relatório (um relatório pode ter vários)
 create table if not exists public.portal_relatorio_grupos (
   relatorio_id uuid not null references public.portal_relatorios (id) on delete cascade,
@@ -83,8 +92,8 @@ grant select, insert, delete on public.portal_empresas to authenticated;
 grant update (nome) on public.portal_empresas to authenticated;
 grant select on public.portal_perfis to authenticated;
 grant select, delete on public.portal_relatorios to authenticated;
-grant insert (titulo, descricao, empresa_id, arquivo, tamanho, url) on public.portal_relatorios to authenticated;
-grant update (titulo, descricao, empresa_id, arquivo, tamanho, url) on public.portal_relatorios to authenticated;
+grant insert (titulo, descricao, empresa_id, arquivo, tamanho, url, fonte_url) on public.portal_relatorios to authenticated;
+grant update (titulo, descricao, empresa_id, arquivo, tamanho, url, fonte_url) on public.portal_relatorios to authenticated;
 
 -- ---------- Funções de apoio ----------
 create or replace function public.portal_eh_equipe()
@@ -284,7 +293,8 @@ create policy "Relatorios: robo apaga sobras" on storage.objects for delete to a
     and not exists (select 1 from public.portal_relatorios r where r.arquivo = storage.objects.name)
   );
 
--- Aponta o relatório para o arquivo novo e devolve o nome do arquivo antigo.
+-- Aponta o relatório (só os que têm cópia automática) para o arquivo novo e
+-- devolve o nome do arquivo antigo.
 create or replace function public.portal_robo_trocar_arquivo(p_relatorio uuid, p_arquivo text, p_tamanho bigint)
 returns text
 language plpgsql
@@ -293,6 +303,7 @@ set search_path = ''
 as $$
 declare
   v_antigo text;
+  v_fonte text;
 begin
   if not public.portal_eh_robo() then
     raise exception 'Sem permissão para atualizar relatórios' using errcode = '42501';
@@ -300,9 +311,12 @@ begin
   if not exists (select 1 from storage.objects where bucket_id = 'relatorios' and name = p_arquivo) then
     raise exception 'Arquivo novo não encontrado' using errcode = 'P0002';
   end if;
-  select arquivo into v_antigo from public.portal_relatorios where id = p_relatorio for update;
+  select arquivo, fonte_url into v_antigo, v_fonte from public.portal_relatorios where id = p_relatorio for update;
   if not found then
     raise exception 'Relatório não encontrado' using errcode = 'P0002';
+  end if;
+  if v_fonte is null then
+    raise exception 'Relatório sem cópia automática' using errcode = '42501';
   end if;
   update public.portal_relatorios
     set arquivo = p_arquivo, tamanho = p_tamanho, url = null

@@ -263,3 +263,4 @@ body.viewer-open { overflow: hidden; }
 .check-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-field); background: var(--bg); }
 .check-list .check { padding: 4px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

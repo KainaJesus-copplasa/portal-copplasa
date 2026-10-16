@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" id="brand-fonts" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=6">
+<link rel="stylesheet" href="assets/styles.css?v=7">
 </head>
 <body>
 
@@ -189,7 +189,19 @@
         <div class="check-list" id="rel-grupos" role="group" aria-labelledby="rel-grupos-label"></div>
         <p class="field-hint" id="rel-empresa-hint"></p>
       </div>
-      <div class="field">
+      <div class="field" id="rel-tipo-field">
+        <p class="field-label" id="rel-tipo-label">Como publicar</p>
+        <div class="radio-group" role="radiogroup" aria-labelledby="rel-tipo-label">
+          <label><input type="radio" name="rel-tipo" value="link" checked><span>Link da página original</span></label>
+          <label><input type="radio" name="rel-tipo" value="arquivo"><span>Arquivo .html</span></label>
+        </div>
+      </div>
+      <div class="field" id="rel-link-field">
+        <label for="rel-url">Link do relatório</label>
+        <input id="rel-url" type="url" maxlength="1000" placeholder="https://claude.ai/artifact/...">
+        <p class="field-hint">Cole o endereço da página original. Abrir relatório leva direto para ela, sempre na versão mais recente. Cada pessoa precisa ter acesso a esse link: no Claude, compartilhe o relatório com ela pelo botão Compartilhar.</p>
+      </div>
+      <div class="field" id="rel-file-field">
         <label for="rel-arquivo" id="rel-arquivo-label">Arquivo do relatório (.html)</label>
         <input id="rel-arquivo" type="file" accept=".html,.htm,text/html">
         <p class="field-hint" id="rel-arquivo-hint">O mesmo arquivo que abre no navegador com dois cliques. Até 50 MB.</p>
@@ -253,6 +265,6 @@
 
 <script src="config.js?v=2"></script>
 <script src="assets/vendor/supabase-2.45.4.js"></script>
-<script src="assets/app.js?v=6"></script>
+<script src="assets/app.js?v=7"></script>
 </body>
 </html>

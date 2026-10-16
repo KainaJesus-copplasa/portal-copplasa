@@ -10,6 +10,8 @@
 --   * Cada relatório pode ser liberado para um ou mais grupos; quem está
 --     num desses grupos vê o relatório.
 --   * Relatório sem grupo é interno: só a equipe vê.
+--   * Um relatório pode ser um arquivo .html guardado aqui ou um link para
+--     a página original (por exemplo, um relatório publicado no Claude).
 --   * Só editores publicam, trocam ou apagam relatórios e definem acessos.
 --   * Os arquivos ficam num bucket privado; o download segue as mesmas regras.
 -- =====================================================================
@@ -40,6 +42,15 @@ create table if not exists public.portal_relatorios (
 );
 create index if not exists portal_relatorios_empresa_idx on public.portal_relatorios (empresa_id);
 
+-- Relatório por link: guarda o endereço da página original em vez do arquivo
+alter table public.portal_relatorios add column if not exists url text;
+alter table public.portal_relatorios alter column arquivo drop not null;
+alter table public.portal_relatorios drop constraint if exists portal_relatorios_arquivo_ou_link;
+alter table public.portal_relatorios add constraint portal_relatorios_arquivo_ou_link check (
+  (arquivo is not null and url is null)
+  or (arquivo is null and url is not null and url ~ '^https://[^[:space:]]+$')
+);
+
 -- Grupos que podem ver cada relatório (um relatório pode ter vários)
 create table if not exists public.portal_relatorio_grupos (
   relatorio_id uuid not null references public.portal_relatorios (id) on delete cascade,
@@ -62,8 +73,8 @@ grant select, insert, delete on public.portal_empresas to authenticated;
 grant update (nome) on public.portal_empresas to authenticated;
 grant select on public.portal_perfis to authenticated;
 grant select, delete on public.portal_relatorios to authenticated;
-grant insert (titulo, descricao, empresa_id, arquivo, tamanho) on public.portal_relatorios to authenticated;
-grant update (titulo, descricao, empresa_id, arquivo, tamanho) on public.portal_relatorios to authenticated;
+grant insert (titulo, descricao, empresa_id, arquivo, tamanho, url) on public.portal_relatorios to authenticated;
+grant update (titulo, descricao, empresa_id, arquivo, tamanho, url) on public.portal_relatorios to authenticated;
 
 -- ---------- Funções de apoio ----------
 create or replace function public.portal_eh_equipe()
@@ -102,7 +113,7 @@ begin
   if tg_op = 'INSERT' then
     new.publicado_em := now();
     new.publicado_por := auth.uid();
-  elsif new.arquivo is distinct from old.arquivo then
+  elsif new.arquivo is distinct from old.arquivo or new.url is distinct from old.url then
     new.publicado_em := now();
     new.publicado_por := auth.uid();
   end if;

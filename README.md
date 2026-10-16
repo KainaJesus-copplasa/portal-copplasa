@@ -22,7 +22,7 @@ Site de informações da Copplasa Corretora de Seguros para clientes, parceiros 
 No **SQL Editor**, cole e rode [`supabase/relatorios.sql`](supabase/relatorios.sql). Ele cria:
 
 - o cadastro de grupos (empresas clientes ou times, como "Equipe Copplasa 2") e o vínculo de cada login a um grupo;
-- a lista de relatórios, os grupos que podem ver cada um e um bucket privado `relatorios` para os arquivos.
+- a lista de relatórios (por link ou por arquivo), os grupos que podem ver cada um e um bucket privado `relatorios` para os arquivos.
 
 Regras: a equipe Copplasa (e quem é editor) vê todos os relatórios; cada relatório pode ser liberado para um ou mais grupos, e quem está num desses grupos vê o relatório; relatório sem grupo é interno ("Somente equipe"). O arquivo só é entregue a quem pode ver o relatório.
 
@@ -30,11 +30,11 @@ O script pode ser rodado de novo a qualquer momento: ele atualiza as regras sem 
 
 Pelo site, quem é editor:
 
-- **Publicar relatório:** envia o arquivo `.html` do relatório e marca os grupos que podem ver.
-- **Editar:** muda título, descrição, grupos que veem, ou substitui o arquivo por uma versão nova.
+- **Publicar relatório:** cola o **link** da página original do relatório (por exemplo, um relatório publicado no Claude) ou envia um **arquivo** `.html`, e marca os grupos que podem ver.
+- **Editar:** muda título, descrição, grupos que veem, troca o link ou substitui o arquivo por uma versão nova.
 - **Acessos:** cadastra grupos e define, para cada login, se é da equipe Copplasa (vê tudo), de qual grupo, ou se só vê o portal.
 
-Os relatórios abrem dentro do site, isolados da sessão de login, com gráficos, filtros e downloads funcionando.
+Relatório por **link** abre a página original em nova aba, sempre na versão mais recente; quem abre precisa ter acesso a essa página (no Claude, pelo botão Compartilhar do relatório). Relatório por **arquivo** abre dentro do site, isolado da sessão de login, com gráficos, filtros e downloads funcionando, e só muda quando alguém envia um arquivo novo.
 
 ## 3. Ativar a aparência editável
 

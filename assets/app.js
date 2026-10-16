@@ -286,6 +286,7 @@
   let isEquipe = false;
   let relSetupMissing = false;
   let multiGroups = true; // false enquanto o banco ainda não tem a tabela de grupos por relatório
+  let linkSupport = true; // false enquanto o banco ainda não aceita relatório por link
   let relEditing = null;
   let relBusy = false;
   let viewerToken = 0;
@@ -461,17 +462,21 @@
   const REL_FIELDS = "id, titulo, descricao, empresa_id, arquivo, tamanho, publicado_em";
   async function loadReports() {
     let rel, eq;
+    // Do banco mais novo para o mais antigo: link + vários grupos, só vários grupos, modelo original.
+    const tentativas = [
+      { campos: REL_FIELDS + ", url, grupos:portal_relatorio_grupos(empresa_id)", grupos: true, link: true },
+      { campos: REL_FIELDS + ", grupos:portal_relatorio_grupos(empresa_id)", grupos: true, link: false },
+      { campos: REL_FIELDS, grupos: false, link: false }
+    ];
     try {
-      [rel, eq] = await Promise.all([
-        sb.from("portal_relatorios")
-          .select(REL_FIELDS + ", grupos:portal_relatorio_grupos(empresa_id)")
-          .order("publicado_em", { ascending: false }),
-        sb.rpc("portal_eh_equipe")
-      ]);
-      multiGroups = !rel.error;
-      if (rel.error) {
-        rel = await sb.from("portal_relatorios").select(REL_FIELDS).order("publicado_em", { ascending: false });
+      eq = sb.rpc("portal_eh_equipe");
+      for (const t of tentativas) {
+        rel = await sb.from("portal_relatorios").select(t.campos).order("publicado_em", { ascending: false });
+        multiGroups = t.grupos;
+        linkSupport = t.link;
+        if (!rel.error) break;
       }
+      eq = await eq;
     } catch (_) {
       rel = { error: true }; eq = { error: true };
     }
@@ -508,11 +513,17 @@
       const who = !isEquipe ? ""
         : r.grupoIds.length ? '<span class="chips">' + r.grupoIds.map((id) => '<span class="chip">' + esc(groupName(id)) + "</span>").join("") + "</span>"
         : '<span><span class="chip chip-solid">Somente equipe</span></span>';
-      const meta = "Atualizado em " + fmtTimestamp(r.publicado_em) + (r.tamanho ? " · " + fmtSize(r.tamanho) : "");
+      const link = safeUrl(r.url);
+      const meta = link
+        ? "Página online, sempre na versão mais recente · " + hostOf(link)
+        : "Atualizado em " + fmtTimestamp(r.publicado_em) + (r.tamanho ? " · " + fmtSize(r.tamanho) : "");
+      const abrir = link
+        ? '<a class="btn btn-primary btn-sm" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">Abrir relatório <span aria-hidden="true">↗</span><span class="sr-only"> (abre em nova aba)</span></a>'
+        : '<button type="button" class="btn btn-primary btn-sm" data-open="' + esc(r.id) + '">Abrir relatório</button>';
       return '<article class="rel-card"><h3>' + esc(r.titulo) + "</h3>" + who +
         (r.descricao ? "<p>" + esc(r.descricao) + "</p>" : "") +
         '<span class="rel-meta">' + esc(meta) + "</span>" +
-        '<div class="rel-actions"><button type="button" class="btn btn-primary btn-sm" data-open="' + esc(r.id) + '">Abrir relatório</button>' +
+        '<div class="rel-actions">' + abrir +
         (canEdit ? '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(r.id) + '">Editar</button>' : "") +
         "</div></article>";
     }).join("") + "</div>";
@@ -540,8 +551,9 @@
   }
   async function openReport(id, push) {
     const r = reports.find((x) => x.id === id);
-    if (!r) {
+    if (!r || r.url) {
       if (!push) history.replaceState(null, "", location.pathname + location.search);
+      if (r) $("#relatorios").scrollIntoView();
       return;
     }
     const token = ++viewerToken;
@@ -589,14 +601,28 @@
     el.className = "ed-status" + (kind ? " " + kind : "");
   }
   function setRelBusy(on) {
-    ["#rel-save", "#rel-cancel", "#rel-delete", "#rel-titulo", "#rel-descricao", "#rel-arquivo"].forEach((s) => { $(s).disabled = on; });
-    document.querySelectorAll("#rel-grupos input").forEach((el) => { el.disabled = on; });
+    ["#rel-save", "#rel-cancel", "#rel-delete", "#rel-titulo", "#rel-descricao", "#rel-arquivo", "#rel-url"].forEach((s) => { $(s).disabled = on; });
+    document.querySelectorAll('#rel-grupos input, input[name="rel-tipo"]').forEach((el) => { el.disabled = on; });
   }
   let relDeleteArmed = 0;
   function disarmRelDelete() {
     clearTimeout(relDeleteArmed); relDeleteArmed = 0;
     $("#rel-delete").textContent = "Excluir relatório";
     $("#rel-delete").classList.remove("btn-danger");
+  }
+  const relTipo = () => (linkSupport ? ((document.querySelector('input[name="rel-tipo"]:checked') || {}).value || "link") : "arquivo");
+  function updateRelTipo() {
+    const tipo = relTipo();
+    const r = relEditing;
+    $("#rel-tipo-field").hidden = !linkSupport;
+    $("#rel-link-field").hidden = tipo !== "link";
+    $("#rel-file-field").hidden = tipo !== "arquivo";
+    const trocaArquivo = r && r.arquivo && tipo === "arquivo";
+    $("#rel-arquivo-label").textContent = trocaArquivo ? "Substituir arquivo (opcional)" : "Arquivo do relatório (.html)";
+    $("#rel-arquivo-hint").textContent = (trocaArquivo
+      ? "Envie a versão nova do relatório para atualizar o que todos veem. Até 50 MB."
+      : "O mesmo arquivo que abre no navegador com dois cliques. Até 50 MB.") +
+      (linkSupport ? "" : " Para publicar por link, rode de novo o arquivo supabase/relatorios.sql no Supabase.");
   }
   function openRelPanel(r) {
     if (!canEdit || relSetupMissing) return;
@@ -617,10 +643,10 @@
       ? "Marque os grupos que podem ver. Sem nenhum marcado, o relatório é interno. A equipe Copplasa e os editores sempre veem todos."
       : "Para liberar um relatório para mais de um grupo, rode de novo o arquivo supabase/relatorios.sql no Supabase.";
     $("#rel-arquivo").value = "";
-    $("#rel-arquivo-label").textContent = r ? "Substituir arquivo (opcional)" : "Arquivo do relatório (.html)";
-    $("#rel-arquivo-hint").textContent = r
-      ? "Envie a versão nova do relatório para atualizar o que todos veem. Até 50 MB."
-      : "O mesmo arquivo que abre no navegador com dois cliques. Até 50 MB.";
+    $("#rel-url").value = r && r.url ? r.url : "";
+    const tipoInicial = r ? (r.url ? "link" : "arquivo") : "link";
+    document.querySelectorAll('input[name="rel-tipo"]').forEach((el) => { el.checked = el.value === tipoInicial; });
+    updateRelTipo();
     $("#rel-delete-zone").hidden = !r;
     disarmRelDelete();
     relStatus("");
@@ -652,9 +678,12 @@
     const titulo = $("#rel-titulo").value.trim();
     const descricao = $("#rel-descricao").value.trim();
     const escolhidos = [...document.querySelectorAll('#rel-grupos input[name="rel-grupo"]:checked')].map((el) => el.value).filter(Boolean);
-    const file = $("#rel-arquivo").files[0] || null;
+    const tipo = relTipo();
+    const file = tipo === "arquivo" ? ($("#rel-arquivo").files[0] || null) : null;
+    const url = $("#rel-url").value.trim();
     if (!titulo) { relStatus("Dê um título ao relatório.", "err"); $("#rel-titulo").focus(); return; }
-    if (!relEditing && !file) { relStatus("Escolha o arquivo .html do relatório.", "err"); $("#rel-arquivo").focus(); return; }
+    if (tipo === "link" && !/^https:\/\/\S+$/i.test(url)) { relStatus("Cole o link completo do relatório, começando com https://.", "err"); $("#rel-url").focus(); return; }
+    if (tipo === "arquivo" && !file && !(relEditing && relEditing.arquivo)) { relStatus("Escolha o arquivo .html do relatório.", "err"); $("#rel-arquivo").focus(); return; }
     if (file) {
       if (!/\.html?$/i.test(file.name)) { relStatus("O arquivo precisa ser uma página .html.", "err"); return; }
       if (file.size > 50 * 1024 * 1024) { relStatus("O arquivo passa do limite de 50 MB.", "err"); return; }
@@ -673,7 +702,8 @@
       }
       relStatus("Salvando...");
       const fields = { titulo, descricao, empresa_id: multiGroups ? null : (escolhidos[0] || null) };
-      if (newPath) { fields.arquivo = newPath; fields.tamanho = file.size; }
+      if (tipo === "link") { fields.url = url; fields.arquivo = null; fields.tamanho = null; }
+      if (newPath) { fields.arquivo = newPath; fields.tamanho = file.size; if (linkSupport) fields.url = null; }
       const res = editing
         ? await sb.from("portal_relatorios").update(fields).eq("id", editing.id).select("id")
         : await sb.from("portal_relatorios").insert(fields).select("id");
@@ -693,7 +723,7 @@
           if (del.error) throw { code: "grupos", relSaved: true, relId };
         }
       }
-      if (editing && newPath && editing.arquivo) {
+      if (editing && editing.arquivo && (newPath || tipo === "link")) {
         reportCache.delete(editing.arquivo);
         try { await sb.storage.from("relatorios").remove([editing.arquivo]); } catch (_) {}
       }
@@ -1489,6 +1519,7 @@
     if (ed) openRelPanel(reports.find((r) => r.id === ed.dataset.edit));
   });
   $("#rel-form").addEventListener("submit", (e) => { e.preventDefault(); saveReport(); });
+  $("#rel-form").addEventListener("change", (e) => { if (e.target.name === "rel-tipo") updateRelTipo(); });
   $("#rel-save").addEventListener("click", saveReport);
   $("#rel-close").addEventListener("click", closeRelPanel);
   $("#rel-cancel").addEventListener("click", closeRelPanel);

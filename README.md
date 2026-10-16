@@ -39,7 +39,7 @@ Os relatórios abrem dentro do site, isolados da sessão de login, com gráficos
 No **SQL Editor**, cole e rode [`supabase/marca.sql`](supabase/marca.sql). Ele:
 
 - cria o registro da aparência do portal (logo, cores, fontes, formato e informações da empresa), que todos leem, inclusive na tela de login, e só editores alteram;
-- troca as seções "Soluções" e "Contatos" pelas informações do site copplasa.com.br, **apenas** se elas ainda estiverem com o conteúdo de exemplo original.
+- troca a seção "Contatos" pelas informações do site copplasa.com.br, **apenas** se ela ainda estiver com o conteúdo de exemplo original.
 
 A aparência padrão segue o site da Copplasa: azul `#006CD1`, ciano `#00D1CE`, magenta `#D1006C`, texto `#4D4D4D`, títulos em EB Garamond (minúsculas) e textos em Lato, botões arredondados. Os logos padrão ficam em `assets/marca/`.
 
@@ -88,5 +88,5 @@ O GitHub Pages deixa o navegador guardar os arquivos por até 10 minutos. Ao mud
 | `config.js` | Endereço e chave pública do projeto Supabase |
 | `supabase/setup.sql` | Tabelas, regras de acesso e conteúdo inicial |
 | `supabase/relatorios.sql` | Empresas, acessos, relatórios e bucket privado dos arquivos |
-| `supabase/marca.sql` | Aparência editável e conteúdo alinhado ao site da Copplasa |
+| `supabase/marca.sql` | Aparência editável e contatos alinhados ao site da Copplasa |
 | `supabase/tornar-editor.sql` | Dá permissão de edição a uma pessoa |

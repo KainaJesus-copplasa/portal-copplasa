@@ -14,7 +14,6 @@
   const hasAuthHash = hashParams.has("access_token") || !!linkError;
 
   const STASH_KEY = "copplasa-portal-rascunho";
-  const GRUPOS = ["Soluções corporativas", "Famílias e PME"];
 
   const SCHEMA = [
     { key: "portal", label: "Boas-vindas", single: true, fields: [
@@ -25,25 +24,6 @@
       { k: "texto", label: "Texto", type: "textarea" },
       { k: "exemplo", label: "Marcar como exemplo", type: "check" }],
       blank: () => ({ data: todayISO(), titulo: "", texto: "", exemplo: false }) },
-    { key: "produtos", label: "Soluções", noun: "solução", req: "nome", fields: [
-      { k: "grupo", label: "Grupo", type: "select", options: GRUPOS },
-      { k: "nome", label: "Nome da solução", type: "text" },
-      { k: "resumo", label: "Resumo", type: "textarea" },
-      { k: "pontos", label: "Pontos de atenção (um por linha)", type: "textarea" }],
-      blank: () => ({ grupo: GRUPOS[0], nome: "", resumo: "", pontos: "" }) },
-    { key: "carencias", label: "Carências", noun: "prazo", req: "prazo", fields: [
-      { k: "prazo", label: "Prazo (ex.: 180 dias)", type: "text" },
-      { k: "descricao", label: "Para quais coberturas", type: "text" }],
-      blank: () => ({ prazo: "", descricao: "" }) },
-    { key: "faq", label: "Dúvidas", noun: "pergunta", req: "pergunta", fields: [
-      { k: "pergunta", label: "Pergunta", type: "text" },
-      { k: "resposta", label: "Resposta", type: "textarea" }],
-      blank: () => ({ pergunta: "", resposta: "" }) },
-    { key: "links", label: "Links", noun: "link", req: "titulo", fields: [
-      { k: "titulo", label: "Título", type: "text" },
-      { k: "descricao", label: "Descrição", type: "textarea" },
-      { k: "url", label: "Endereço (https://...)", type: "url" }],
-      blank: () => ({ titulo: "", descricao: "", url: "" }) },
     { key: "contatos", label: "Contatos", noun: "contato", req: "area", fields: [
       { k: "area", label: "Área", type: "text" },
       { k: "canal", label: "Telefone ou e-mail", type: "text" },
@@ -141,7 +121,7 @@
     nome: "Copplasa",
     portalNome: "Portal Copplasa",
     slogan: "seu par em seguros e benefícios",
-    loginTexto: "Comunicados, soluções, relatórios e canais de atendimento para clientes, parceiros e equipe Copplasa.",
+    loginTexto: "Comunicados, relatórios e canais de atendimento para clientes, parceiros e equipe Copplasa.",
     logo: "assets/marca/logo.svg",
     logoClaro: "assets/marca/logo-branco.svg",
     icone: "assets/marca/icone.png",
@@ -380,55 +360,6 @@
       : '<p class="empty">Nenhum aviso publicado no momento.</p>';
     return band("avisos", false, head("avisos", "Avisos", "Comunicados para clientes, parceiros e equipe.") + body);
   }
-  function card(p) {
-    const pts = String(p.pontos || "").split("\n").map((t) => t.trim()).filter(Boolean);
-    return '<article class="card"><h4>' + esc(p.nome) + "</h4>" + (p.resumo ? "<p>" + esc(p.resumo) + "</p>" : "") +
-      (pts.length ? "<ul>" + pts.map((t) => "<li>" + esc(t) + "</li>").join("") + "</ul>" : "") + "</article>";
-  }
-  function prazos(d) {
-    if (!d.carencias.length) return "";
-    return '<div class="prazos"><div class="prazos-head"><h4>Prazos máximos de carência em planos de saúde</h4><p class="prazos-src">Lei 9.656/1998, art. 12</p></div>' +
-      '<div class="prazos-grid">' + d.carencias.map((c) => {
-        const m = /^\s*(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(c.prazo || "");
-        const num = m ? esc(m[1]) + (m[2] ? '<span class="prazo-unit">' + esc(m[2]) + "</span>" : "") : esc(c.prazo);
-        return '<div class="prazo"><div class="prazo-num">' + num + '</div><div class="prazo-txt">' + esc(c.descricao) + "</div></div>";
-      }).join("") + '</div><p class="prazos-foot">O contrato pode prever prazos menores ou nenhuma carência.</p></div>';
-  }
-  function groupsOf(produtos) {
-    const gs = GRUPOS.slice();
-    produtos.forEach((p) => { const g = p.grupo || GRUPOS[0]; if (gs.indexOf(g) < 0) gs.push(g); });
-    return gs;
-  }
-  function secProdutos(d) {
-    const groups = groupsOf(d.produtos).filter((g) => d.produtos.some((p) => (p.grupo || GRUPOS[0]) === g));
-    // Os prazos de carência ficam junto do grupo de saúde (ou do primeiro grupo).
-    const prazoGroup = groups.find((g) => /corporativ|saúde/i.test(g)) || groups[0];
-    let html = groups.map((g) =>
-      '<div class="group"><h3 class="group-title">' + esc(g) + "</h3>" +
-      '<div class="cards">' + d.produtos.filter((p) => (p.grupo || GRUPOS[0]) === g).map(card).join("") + "</div>" +
-      (g === prazoGroup ? prazos(d) : "") + "</div>").join("");
-    if (!groups.length) html = d.carencias.length ? '<div class="group">' + prazos(d) + "</div>" : '<p class="empty">Nenhuma solução cadastrada.</p>';
-    return band("produtos", true, head("produtos", "Soluções", "Benefícios, saúde e seguros para empresas, pessoas e famílias.") + html);
-  }
-  function secFaq(d) {
-    const body = d.faq.length
-      ? '<div class="faq">' + d.faq.map((f) => '<details class="qa"><summary>' + esc(f.pergunta) + '</summary><div class="ans">' + paras(f.resposta) + "</div></details>").join("") + "</div>"
-      : '<p class="empty">Nenhuma pergunta cadastrada.</p>';
-    return band("duvidas", false, head("duvidas", "Dúvidas frequentes", "") + body +
-      '<p class="note">Respostas gerais. As regras de cada contrato dependem da operadora ou da seguradora. Em caso de dúvida, fale com a equipe técnica da Copplasa.</p>');
-  }
-  function secLinks(d) {
-    const body = d.links.length
-      ? '<ul class="links">' + d.links.map((l) => {
-          const u = safeUrl(l.url);
-          const t = u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(l.titulo) + "</a>"
-                      : '<span class="ltitle">' + esc(l.titulo) + "</span>";
-          return "<li>" + t + (l.descricao ? "<p>" + esc(l.descricao) + "</p>" : "") +
-            (u ? '<span class="host">' + esc(hostOf(u)) + "</span>" : '<span><span class="chip">Link a cadastrar</span></span>') + "</li>";
-        }).join("") + "</ul>"
-      : '<p class="empty">Nenhum link cadastrado.</p>';
-    return '<section id="links" aria-labelledby="h-links">' + head("links", "Links úteis", "") + body + "</section>";
-  }
   function secContatos(d) {
     const body = d.contatos.length
       ? '<div class="contacts">' + d.contatos.map((c) =>
@@ -437,13 +368,12 @@
             (c.exemplo ? "" : '<button type="button" class="btn btn-ghost btn-sm" data-copy="' + esc(c.canal) + '">Copiar</button>') + "</div>" : "") +
           (c.horario ? '<p class="horario">' + esc(c.horario) + "</p>" : "") + "</article>").join("") + "</div>"
       : '<p class="empty">Nenhum contato cadastrado.</p>';
-    return '<section id="contatos" aria-labelledby="h-contatos">' + head("contatos", "Contatos", "") + body + "</section>";
+    return band("contatos", true, head("contatos", "Contatos", "Fale com a Copplasa.") + body);
   }
   function renderContent(d) {
     $("#lede").textContent = d.portal.boasVindas || "";
     $("#stamp-date").textContent = fmtTimestamp(loadedAt) || "data não informada";
-    $("#conteudo").innerHTML = secAvisos(d) + secProdutos(d) + secFaq(d) +
-      '<div class="band band-soft"><div class="wrap split">' + secLinks(d) + secContatos(d) + "</div></div>";
+    $("#conteudo").innerHTML = secAvisos(d) + secContatos(d);
   }
 
   // ---------- Entrar no portal ----------
@@ -919,10 +849,7 @@
     if (f.type === "check") return '<label class="check" for="' + id + '"><input type="checkbox" id="' + id + '" ' + data + (v ? " checked" : "") + "> " + esc(f.label) + "</label>";
     let ctl;
     if (f.type === "textarea") ctl = '<textarea id="' + id + '" ' + data + ' rows="4">' + esc(v) + "</textarea>";
-    else if (f.type === "select") {
-      const opts = f.k === "grupo" && draft ? groupsOf(draft.produtos) : f.options;
-      ctl = '<select id="' + id + '" ' + data + ">" + opts.map((o) => "<option" + (o === v ? " selected" : "") + ">" + esc(o) + "</option>").join("") + "</select>";
-    }
+    else if (f.type === "select") ctl = '<select id="' + id + '" ' + data + ">" + f.options.map((o) => "<option" + (o === v ? " selected" : "") + ">" + esc(o) + "</option>").join("") + "</select>";
     else ctl = '<input type="' + (f.type === "date" ? "date" : f.type === "url" ? "url" : "text") + '" id="' + id + '" ' + data + ' value="' + esc(v) + '"' + (f.type === "url" ? ' placeholder="https://"' : "") + ">";
     return '<div class="field"><label for="' + id + '">' + esc(f.label) + "</label>" + ctl + "</div>";
   }
@@ -1316,7 +1243,7 @@
       html = '<div class="field"><label for="b-font-titulos">Fonte dos títulos</label><select id="b-font-titulos" data-font="titulos">' + opts(FONTS_TITULOS, b.fontes.titulos) + "</select>" +
           '<p class="font-sample" style="font-family: var(--font-display); text-transform: var(--title-transform)">Gestão de benefícios e seguros</p></div>' +
         '<div class="field"><label for="b-font-texto">Fonte dos textos</label><select id="b-font-texto" data-font="texto">' + opts(FONTS_TEXTO, b.fontes.texto) + "</select>" +
-          '<p class="font-sample" style="font-family: var(--font-body); font-size: 1rem">Comunicados, soluções e relatórios para clientes, parceiros e equipe.</p></div>' +
+          '<p class="font-sample" style="font-family: var(--font-body); font-size: 1rem">Comunicados, relatórios e contatos para clientes, parceiros e equipe.</p></div>' +
         '<label class="check"><input type="checkbox" id="b-lower" data-b-check="titulosMinusculos"' + (b.titulosMinusculos ? " checked" : "") + "> Títulos em letras minúsculas, como no site da Copplasa</label>" +
         '<div class="field"><p class="field-label">Formato dos botões e cartões</p><div class="radio-group">' +
           Object.keys(FORMATOS).map((k) => '<label><input type="radio" name="b-formato" value="' + k + '"' + (b.formato === k ? " checked" : "") + "><span>" + esc(FORMATOS[k].nome) + "</span></label>").join("") +

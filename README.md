@@ -21,16 +21,18 @@ Site de informações da Copplasa Corretora de Seguros para clientes, parceiros 
 
 No **SQL Editor**, cole e rode [`supabase/relatorios.sql`](supabase/relatorios.sql). Ele cria:
 
-- o cadastro de empresas clientes e o vínculo de cada login (equipe ou cliente de uma empresa);
-- a lista de relatórios e um bucket privado `relatorios` para os arquivos.
+- o cadastro de grupos (empresas clientes ou times, como "Equipe Copplasa 2") e o vínculo de cada login a um grupo;
+- a lista de relatórios, os grupos que podem ver cada um e um bucket privado `relatorios` para os arquivos.
 
-Regras: a equipe Copplasa (e quem é editor) vê todos os relatórios; um cliente vê só os da própria empresa; relatório marcado como "Somente equipe" nunca aparece para clientes. O arquivo só é entregue a quem pode ver o relatório.
+Regras: a equipe Copplasa (e quem é editor) vê todos os relatórios; cada relatório pode ser liberado para um ou mais grupos, e quem está num desses grupos vê o relatório; relatório sem grupo é interno ("Somente equipe"). O arquivo só é entregue a quem pode ver o relatório.
+
+O script pode ser rodado de novo a qualquer momento: ele atualiza as regras sem perder dados e passa relatórios antigos (de um grupo só) para o modelo de vários grupos.
 
 Pelo site, quem é editor:
 
-- **Publicar relatório:** envia o arquivo `.html` do relatório e escolhe quem pode ver.
-- **Editar:** muda título, descrição, quem vê, ou substitui o arquivo por uma versão nova.
-- **Acessos:** cadastra empresas clientes e define, para cada login, se é da equipe, cliente de qual empresa, ou só vê o portal.
+- **Publicar relatório:** envia o arquivo `.html` do relatório e marca os grupos que podem ver.
+- **Editar:** muda título, descrição, grupos que veem, ou substitui o arquivo por uma versão nova.
+- **Acessos:** cadastra grupos e define, para cada login, se é da equipe Copplasa (vê tudo), de qual grupo, ou se só vê o portal.
 
 Os relatórios abrem dentro do site, isolados da sessão de login, com gráficos, filtros e downloads funcionando.
 
@@ -63,7 +65,7 @@ No plano gratuito do GitHub, o repositório precisa ser público para usar o Pag
 ## 5. Cadastrar pessoas
 
 - **Criar acesso:** Supabase > **Authentication > Users > Add user > Create new user**. Informe e-mail e senha e marque **Auto Confirm User**. Passe a senha à pessoa por um canal seguro; ela pode trocá-la em "Alterar senha" depois de entrar.
-- **Definir o que a pessoa vê:** no site, botão **Acessos** (equipe, cliente de uma empresa ou só o portal).
+- **Definir o que a pessoa vê:** no site, botão **Acessos** (equipe Copplasa, um grupo ou só o portal).
 - **Dar permissão de edição:** rode [`supabase/tornar-editor.sql`](supabase/tornar-editor.sql) no SQL Editor com o e-mail da pessoa.
 - **Bloquear ou remover acesso:** em **Authentication > Users**, apague o usuário.
 
@@ -87,6 +89,6 @@ O GitHub Pages deixa o navegador guardar os arquivos por até 10 minutos. Ao mud
 | `assets/vendor/` | Biblioteca oficial do Supabase (`@supabase/supabase-js` 2.45.4) |
 | `config.js` | Endereço e chave pública do projeto Supabase |
 | `supabase/setup.sql` | Tabelas, regras de acesso e conteúdo inicial |
-| `supabase/relatorios.sql` | Empresas, acessos, relatórios e bucket privado dos arquivos |
+| `supabase/relatorios.sql` | Grupos, acessos, relatórios (com vários grupos por relatório) e bucket privado dos arquivos |
 | `supabase/marca.sql` | Aparência editável e contatos alinhados ao site da Copplasa |
 | `supabase/tornar-editor.sql` | Dá permissão de edição a uma pessoa |

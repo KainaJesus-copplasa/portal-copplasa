@@ -285,6 +285,7 @@
   let people = [];
   let isEquipe = false;
   let relSetupMissing = false;
+  let multiGroups = true; // false enquanto o banco ainda não tem a tabela de grupos por relatório
   let relEditing = null;
   let relBusy = false;
   let viewerToken = 0;
@@ -457,28 +458,36 @@
     return mb >= 1 ? mb.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " MB"
                    : Math.max(1, Math.round(bytes / 1024)).toLocaleString("pt-BR") + " KB";
   }
+  const REL_FIELDS = "id, titulo, descricao, empresa_id, arquivo, tamanho, publicado_em";
   async function loadReports() {
     let rel, eq;
     try {
       [rel, eq] = await Promise.all([
         sb.from("portal_relatorios")
-          .select("id, titulo, descricao, empresa_id, arquivo, tamanho, publicado_em, empresa:portal_empresas(nome)")
+          .select(REL_FIELDS + ", grupos:portal_relatorio_grupos(empresa_id)")
           .order("publicado_em", { ascending: false }),
         sb.rpc("portal_eh_equipe")
       ]);
+      multiGroups = !rel.error;
+      if (rel.error) {
+        rel = await sb.from("portal_relatorios").select(REL_FIELDS).order("publicado_em", { ascending: false });
+      }
     } catch (_) {
       rel = { error: true }; eq = { error: true };
     }
     if (!session) return;
     relSetupMissing = !!rel.error;
-    reports = rel.error ? [] : (rel.data || []);
+    reports = (rel.error ? [] : (rel.data || [])).map((r) => Object.assign(r, {
+      grupoIds: multiGroups ? (r.grupos || []).map((g) => g.empresa_id) : (r.empresa_id ? [r.empresa_id] : [])
+    }));
     isEquipe = !eq.error && eq.data === true;
-    if (canEdit && !relSetupMissing) {
+    if ((canEdit || isEquipe) && !relSetupMissing) {
       const emp = await sb.from("portal_empresas").select("id, nome").order("nome");
       empresas = emp.error ? [] : (emp.data || []);
     }
     renderReports();
   }
+  const groupName = (id) => (empresas.find((e) => e.id === id) || {}).nome || "Grupo";
   function renderReports() {
     const show = reports.length > 0 || canEdit;
     $("#relatorios").hidden = !show;
@@ -486,7 +495,7 @@
     $("#rel-new").hidden = !(canEdit && !relSetupMissing);
     $("#open-access").hidden = !(canEdit && !relSetupMissing);
     if (!show) return;
-    $("#rel-sub").textContent = isEquipe ? "Relatórios internos da equipe e relatórios de clientes." : "Relatórios da sua empresa.";
+    $("#rel-sub").textContent = isEquipe ? "Relatórios internos da equipe e relatórios liberados para grupos." : "Relatórios liberados para você.";
     if (relSetupMissing) {
       $("#rel-list").innerHTML = '<p class="rel-hint">A área de relatórios ainda não foi ativada no banco de dados. Rode o arquivo <code>supabase/relatorios.sql</code> no SQL Editor do Supabase e recarregue a página.</p>';
       return;
@@ -497,7 +506,7 @@
     }
     $("#rel-list").innerHTML = '<div class="rel-grid">' + reports.map((r) => {
       const who = !isEquipe ? ""
-        : r.empresa_id ? '<span><span class="chip">' + esc((r.empresa && r.empresa.nome) || "Cliente") + "</span></span>"
+        : r.grupoIds.length ? '<span class="chips">' + r.grupoIds.map((id) => '<span class="chip">' + esc(groupName(id)) + "</span>").join("") + "</span>"
         : '<span><span class="chip chip-solid">Somente equipe</span></span>';
       const meta = "Atualizado em " + fmtTimestamp(r.publicado_em) + (r.tamanho ? " · " + fmtSize(r.tamanho) : "");
       return '<article class="rel-card"><h3>' + esc(r.titulo) + "</h3>" + who +
@@ -580,7 +589,8 @@
     el.className = "ed-status" + (kind ? " " + kind : "");
   }
   function setRelBusy(on) {
-    ["#rel-save", "#rel-cancel", "#rel-delete", "#rel-titulo", "#rel-descricao", "#rel-empresa", "#rel-arquivo"].forEach((s) => { $(s).disabled = on; });
+    ["#rel-save", "#rel-cancel", "#rel-delete", "#rel-titulo", "#rel-descricao", "#rel-arquivo"].forEach((s) => { $(s).disabled = on; });
+    document.querySelectorAll("#rel-grupos input").forEach((el) => { el.disabled = on; });
   }
   let relDeleteArmed = 0;
   function disarmRelDelete() {
@@ -595,12 +605,17 @@
     $("#rel-save").textContent = r ? "Salvar" : "Publicar";
     $("#rel-titulo").value = r ? r.titulo : "";
     $("#rel-descricao").value = r ? (r.descricao || "") : "";
-    $("#rel-empresa").innerHTML = '<option value="">Somente equipe Copplasa (interno)</option>' +
-      empresas.map((e) => '<option value="' + esc(e.id) + '">Cliente: ' + esc(e.nome) + "</option>").join("");
-    $("#rel-empresa").value = r && r.empresa_id ? r.empresa_id : "";
-    $("#rel-empresa-hint").textContent = empresas.length
-      ? "Clientes só veem relatórios da própria empresa. A equipe vê todos."
-      : "Para publicar para um cliente, cadastre a empresa em Acessos.";
+    const marcados = r ? r.grupoIds : [];
+    // Com a tabela de grupos: marca quantos quiser. Sem ela (banco antigo): escolhe um só.
+    const tipo = multiGroups ? "checkbox" : "radio";
+    $("#rel-grupos").innerHTML = (multiGroups ? "" :
+        '<label class="check"><input type="radio" name="rel-grupo" value=""' + (marcados.length ? "" : " checked") + "> Somente equipe Copplasa (interno)</label>") +
+      empresas.map((e) => '<label class="check"><input type="' + tipo + '" name="rel-grupo" value="' + esc(e.id) + '"' +
+        (marcados.indexOf(e.id) >= 0 ? " checked" : "") + "> " + esc(e.nome) + "</label>").join("") +
+      (empresas.length ? "" : '<p class="field-hint">Nenhum grupo cadastrado. Cadastre em Acessos.</p>');
+    $("#rel-empresa-hint").textContent = multiGroups
+      ? "Marque os grupos que podem ver. Sem nenhum marcado, o relatório é interno. A equipe Copplasa e os editores sempre veem todos."
+      : "Para liberar um relatório para mais de um grupo, rode de novo o arquivo supabase/relatorios.sql no Supabase.";
     $("#rel-arquivo").value = "";
     $("#rel-arquivo-label").textContent = r ? "Substituir arquivo (opcional)" : "Arquivo do relatório (.html)";
     $("#rel-arquivo-hint").textContent = r
@@ -636,7 +651,7 @@
     if (relBusy) return;
     const titulo = $("#rel-titulo").value.trim();
     const descricao = $("#rel-descricao").value.trim();
-    const empresaId = $("#rel-empresa").value || null;
+    const escolhidos = [...document.querySelectorAll('#rel-grupos input[name="rel-grupo"]:checked')].map((el) => el.value).filter(Boolean);
     const file = $("#rel-arquivo").files[0] || null;
     if (!titulo) { relStatus("Dê um título ao relatório.", "err"); $("#rel-titulo").focus(); return; }
     if (!relEditing && !file) { relStatus("Escolha o arquivo .html do relatório.", "err"); $("#rel-arquivo").focus(); return; }
@@ -657,13 +672,27 @@
         if (up.error) throw up.error;
       }
       relStatus("Salvando...");
-      const fields = { titulo, descricao, empresa_id: empresaId };
+      const fields = { titulo, descricao, empresa_id: multiGroups ? null : (escolhidos[0] || null) };
       if (newPath) { fields.arquivo = newPath; fields.tamanho = file.size; }
       const res = editing
         ? await sb.from("portal_relatorios").update(fields).eq("id", editing.id).select("id")
         : await sb.from("portal_relatorios").insert(fields).select("id");
       if (res.error) throw res.error;
       if (!res.data || !res.data.length) throw { code: "sem_permissao" };
+      if (multiGroups) {
+        const relId = res.data[0].id;
+        const antes = editing ? editing.grupoIds : [];
+        const novos = escolhidos.filter((id) => antes.indexOf(id) < 0);
+        const tirar = antes.filter((id) => escolhidos.indexOf(id) < 0);
+        if (novos.length) {
+          const ins = await sb.from("portal_relatorio_grupos").insert(novos.map((id) => ({ relatorio_id: relId, empresa_id: id })));
+          if (ins.error) throw { code: "grupos", relSaved: true, relId };
+        }
+        if (tirar.length) {
+          const del = await sb.from("portal_relatorio_grupos").delete().eq("relatorio_id", relId).in("empresa_id", tirar);
+          if (del.error) throw { code: "grupos", relSaved: true, relId };
+        }
+      }
       if (editing && newPath && editing.arquivo) {
         reportCache.delete(editing.arquivo);
         try { await sb.storage.from("relatorios").remove([editing.arquivo]); } catch (_) {}
@@ -674,6 +703,18 @@
       toast(editing ? "Relatório atualizado." : "Relatório publicado.");
       await loadReports();
     } catch (e) {
+      if (e && e.relSaved) {
+        // O relatório foi salvo; só a liberação para os grupos falhou.
+        relBusy = false;
+        await loadReports();
+        // Continua editando o relatório que já existe, para não criar outro ao tentar de novo.
+        relEditing = reports.find((x) => x.id === e.relId) || relEditing;
+        $("#rel-title").textContent = "Editar relatório";
+        $("#rel-save").textContent = "Salvar";
+        $("#rel-delete-zone").hidden = !relEditing;
+        relStatus("O relatório foi salvo, mas não foi possível atualizar os grupos que podem ver. Abra Editar e tente de novo.", "err");
+        return;
+      }
       if (newPath) { try { await sb.storage.from("relatorios").remove([newPath]); } catch (_) {} }
       relStatus(relErrorText(e), "err");
     } finally {
@@ -748,7 +789,7 @@
   }
   function renderAccess() {
     const opts = '<option value="">Só o portal (sem relatórios)</option><option value="equipe">Equipe Copplasa</option>' +
-      empresas.map((e) => '<option value="empresa:' + esc(e.id) + '">Cliente: ' + esc(e.nome) + "</option>").join("");
+      empresas.map((e) => '<option value="empresa:' + esc(e.id) + '">Grupo: ' + esc(e.nome) + "</option>").join("");
     $("#access-list").innerHTML = people.map((p) => {
       const last = p.ultimo_acesso ? "Último acesso: " + fmtTimestamp(p.ultimo_acesso) : "Ainda não entrou";
       const sel = p.editor

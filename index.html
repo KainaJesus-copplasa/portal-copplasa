@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" id="brand-fonts" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=5">
+<link rel="stylesheet" href="assets/styles.css?v=6">
 </head>
 <body>
 
@@ -185,8 +185,8 @@
         <textarea id="rel-descricao" rows="3" maxlength="400"></textarea>
       </div>
       <div class="field">
-        <label for="rel-empresa">Quem pode ver</label>
-        <select id="rel-empresa"></select>
+        <p class="field-label" id="rel-grupos-label">Quem pode ver</p>
+        <div class="check-list" id="rel-grupos" role="group" aria-labelledby="rel-grupos-label"></div>
         <p class="field-hint" id="rel-empresa-hint"></p>
       </div>
       <div class="field">
@@ -253,6 +253,6 @@
 
 <script src="config.js?v=2"></script>
 <script src="assets/vendor/supabase-2.45.4.js"></script>
-<script src="assets/app.js?v=5"></script>
+<script src="assets/app.js?v=6"></script>
 </body>
 </html>

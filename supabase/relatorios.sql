@@ -6,8 +6,10 @@
 --
 -- Regras:
 --   * Equipe Copplasa (e quem é editor) vê todos os relatórios.
---   * Cliente vê só os relatórios da empresa à qual o login está ligado.
---   * Relatório sem empresa é interno: só a equipe vê.
+--   * Cada login pode estar ligado a um grupo (empresa cliente ou time).
+--   * Cada relatório pode ser liberado para um ou mais grupos; quem está
+--     num desses grupos vê o relatório.
+--   * Relatório sem grupo é interno: só a equipe vê.
 --   * Só editores publicam, trocam ou apagam relatórios e definem acessos.
 --   * Os arquivos ficam num bucket privado; o download segue as mesmas regras.
 -- =====================================================================
@@ -38,13 +40,24 @@ create table if not exists public.portal_relatorios (
 );
 create index if not exists portal_relatorios_empresa_idx on public.portal_relatorios (empresa_id);
 
+-- Grupos que podem ver cada relatório (um relatório pode ter vários)
+create table if not exists public.portal_relatorio_grupos (
+  relatorio_id uuid not null references public.portal_relatorios (id) on delete cascade,
+  empresa_id uuid not null references public.portal_empresas (id) on delete cascade,
+  primary key (relatorio_id, empresa_id)
+);
+create index if not exists portal_relatorio_grupos_empresa_idx on public.portal_relatorio_grupos (empresa_id);
+
 alter table public.portal_empresas enable row level security;
 alter table public.portal_perfis enable row level security;
 alter table public.portal_relatorios enable row level security;
+alter table public.portal_relatorio_grupos enable row level security;
 
 revoke all on public.portal_empresas from anon, authenticated;
 revoke all on public.portal_perfis from anon, authenticated;
 revoke all on public.portal_relatorios from anon, authenticated;
+revoke all on public.portal_relatorio_grupos from anon, authenticated;
+grant select, insert, delete on public.portal_relatorio_grupos to authenticated;
 grant select, insert, delete on public.portal_empresas to authenticated;
 grant update (nome) on public.portal_empresas to authenticated;
 grant select on public.portal_perfis to authenticated;
@@ -124,8 +137,22 @@ drop policy if exists "Relatorios conforme acesso" on public.portal_relatorios;
 create policy "Relatorios conforme acesso" on public.portal_relatorios for select to authenticated
   using (
     (select public.portal_eh_equipe())
-    or (empresa_id is not null and empresa_id = (select public.portal_minha_empresa()))
+    or exists (
+      select 1 from public.portal_relatorio_grupos g
+      where g.relatorio_id = portal_relatorios.id
+        and g.empresa_id = (select public.portal_minha_empresa())
+    )
   );
+
+drop policy if exists "Grupos do relatorio visiveis" on public.portal_relatorio_grupos;
+create policy "Grupos do relatorio visiveis" on public.portal_relatorio_grupos for select to authenticated
+  using ((select public.portal_eh_equipe()) or empresa_id = (select public.portal_minha_empresa()));
+drop policy if exists "Editores liberam relatorios" on public.portal_relatorio_grupos;
+create policy "Editores liberam relatorios" on public.portal_relatorio_grupos for insert to authenticated
+  with check ((select public.portal_eh_editor()));
+drop policy if exists "Editores retiram relatorios" on public.portal_relatorio_grupos;
+create policy "Editores retiram relatorios" on public.portal_relatorio_grupos for delete to authenticated
+  using ((select public.portal_eh_editor()));
 drop policy if exists "Editores publicam relatorios" on public.portal_relatorios;
 create policy "Editores publicam relatorios" on public.portal_relatorios for insert to authenticated
   with check ((select public.portal_eh_editor()));
@@ -208,3 +235,15 @@ create policy "Relatorios: editores substituem" on storage.objects for update to
 drop policy if exists "Relatorios: editores apagam" on storage.objects;
 create policy "Relatorios: editores apagam" on storage.objects for delete to authenticated
   using (bucket_id = 'relatorios' and (select public.portal_eh_editor()));
+
+-- ---------- Atualizações ----------
+-- Relatórios publicados antes dos grupos múltiplos: passa o grupo único
+-- para a nova tabela (pode rodar de novo sem duplicar).
+insert into public.portal_relatorio_grupos (relatorio_id, empresa_id)
+select id, empresa_id from public.portal_relatorios where empresa_id is not null
+on conflict do nothing;
+update public.portal_relatorios set empresa_id = null where empresa_id is not null;
+
+-- Grupo pedido pela equipe
+insert into public.portal_empresas (nome) values ('Equipe Copplasa 2')
+on conflict (nome) do nothing;

@@ -47,6 +47,8 @@ Para um relatório entrar na rotina, no portal clique em **Publicar relatório**
 3. No ambiente de nuvem do Claude (seta ao lado do título da sessão > Edit cloud environment), em **Environment variables**, defina `PORTAL_ROBO_EMAIL` e `PORTAL_ROBO_SENHA`.
 4. A rotina lista os relatórios com cópia automática (`python3 scripts/publicar_relatorio.py --listar`), lê cada artefato e publica com `python3 scripts/publicar_relatorio.py --arquivo relatorio.html --relatorio-id <id>`.
 
+A sessão da rotina não tem este repositório e não baixa código da internet (a verificação automática de permissões bloqueia isso). Por isso o texto da rotina traz uma cópia de `scripts/publicar_relatorio.py`: ao alterar este arquivo, atualize também a cópia no texto da rotina.
+
 O robô vê todos os relatórios, envia arquivos novos, troca o arquivo só dos relatórios com cópia automática e apaga só arquivos que nenhum relatório usa mais; não cria, não apaga nem renomeia relatórios, e não mexe em conteúdo, aparência ou acessos. Se uma atualização falhar, o relatório continua com a versão anterior.
 
 ## 3. Ativar a aparência editável

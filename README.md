@@ -32,7 +32,7 @@ Pelo site, quem é editor:
 
 - **Publicar relatório:** cola o **link** da página original do relatório (por exemplo, um relatório publicado no Claude) ou envia um **arquivo** `.html`, e marca os grupos que podem ver.
 - **Editar:** muda título, descrição, grupos que veem, troca o link ou substitui o arquivo por uma versão nova.
-- **Acessos:** cadastra grupos e define, para cada login, se é da equipe Copplasa (vê tudo), de qual grupo, ou se só vê o portal.
+- **Acessos:** cadastra e exclui grupos e define, para cada login, se é da equipe Copplasa (vê tudo), de qual grupo, ou se só vê o portal. A lista de grupos mostra quantos logins e relatórios usam cada um; só dá para excluir grupo sem logins e sem relatórios, e o portal confere isso de novo na hora de excluir.
 
 Relatório por **link** abre a página original em nova aba, sempre na versão mais recente; quem abre precisa ter acesso a essa página (no Claude, pelo botão Compartilhar do relatório). Relatório por **arquivo** abre dentro do site, isolado da sessão de login, com gráficos, filtros e downloads funcionando, e só muda quando alguém envia um arquivo novo.
 
@@ -62,9 +62,10 @@ A aparência padrão segue o site da Copplasa: azul `#006CD1`, ciano `#00D1CE`, 
 
 Pelo site, quem é editor clica em **Aparência** e muda:
 
-- **Marca e logos:** nome da empresa e do portal, slogan, texto da tela de login, logo colorido, logo branco e ícone da aba;
-- **Cores:** sete cores, com aviso quando o contraste fica baixo;
-- **Fontes e formato:** fonte dos títulos e dos textos, títulos em minúsculas e formato dos botões e cartões;
+- **Capa (login):** a tela de login, configurada à parte do site interno: título, texto, instrução do formulário, logo, cor de fundo e uma imagem de fundo opcional (com a intensidade da cor sobre ela), com prévia no próprio painel;
+- **Site interno:** nome da empresa e do portal, slogan, logo colorido (topo), logo branco (rodapé) e ícone da aba;
+- **Cores do site:** sete cores do site interno, com aviso quando o contraste fica baixo;
+- **Fontes e formato:** fonte dos títulos e dos textos, títulos em minúsculas e formato dos botões e cartões (valem para a capa e para o site interno);
 - **Informações da empresa:** descrição, e-mail, telefone, WhatsApp, site, redes sociais, unidades e links do rodapé.
 
 As mudanças aparecem como prévia só para quem está editando e passam a valer para todos ao clicar em **Publicar**. Cada seção tem um botão para voltar ao padrão do site da Copplasa.

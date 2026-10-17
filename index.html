@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" id="brand-fonts" href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap">
-<link rel="stylesheet" href="assets/styles.css?v=8">
+<link rel="stylesheet" href="assets/styles.css?v=9">
 </head>
 <body>
 
@@ -21,15 +21,15 @@
 <div id="view-auth" class="auth" hidden>
   <div class="auth-brand">
     <div class="auth-brand-inner">
-      <img class="auth-logo" data-logo="claro" src="assets/marca/logo-branco.svg" alt="Copplasa">
-      <h1 class="auth-title" data-brand="portalNome">Portal Copplasa</h1>
-      <p class="auth-lede" data-brand="loginTexto"></p>
+      <img class="auth-logo" data-logo="capa" src="assets/marca/logo-branco.svg" alt="Copplasa">
+      <h1 class="auth-title" data-capa="titulo">Portal Copplasa</h1>
+      <p class="auth-lede" data-capa="texto"></p>
     </div>
   </div>
   <div class="auth-panel">
     <form id="auth-login" class="auth-form" novalidate hidden>
       <h2>Entrar</h2>
-      <p class="auth-sub">Use o e-mail e a senha que a Copplasa cadastrou para você.</p>
+      <p class="auth-sub" data-capa="instrucao">Use o e-mail e a senha que a Copplasa cadastrou para você.</p>
       <div class="field">
         <label for="login-email">E-mail</label>
         <input id="login-email" type="email" autocomplete="username" inputmode="email" required>
@@ -157,7 +157,7 @@
       <h2 id="brand-title" tabindex="-1">Aparência</h2>
       <button type="button" class="btn btn-ghost btn-sm" id="brand-close">Fechar</button>
     </div>
-    <p class="ed-note">As mudanças aparecem na hora, só para você. Clique em Publicar para que todos vejam, inclusive na tela de login.</p>
+    <p class="ed-note">A capa (tela de login) e o site interno são configurados separadamente, cada um na sua aba. As mudanças aparecem na hora, só para você; clique em Publicar para que todos vejam.</p>
     <div class="ed-tabs" id="brand-tabs"></div>
     <div class="ed-body" id="brand-body"></div>
     <div class="ed-foot">
@@ -236,6 +236,11 @@
             <button type="button" class="btn btn-ghost" id="add-empresa">Adicionar</button>
           </div>
         </div>
+        <div class="field">
+          <p class="field-label" id="group-list-label">Grupos cadastrados</p>
+          <div class="group-list" id="group-list" role="group" aria-labelledby="group-list-label"></div>
+          <p class="field-hint">Só dá para excluir um grupo sem logins e sem relatórios. Para liberar um grupo, mude abaixo o acesso das pessoas que fazem parte dele e tire o grupo dos relatórios em “Editar”.</p>
+        </div>
       </div>
       <div id="access-list"></div>
     </div>
@@ -266,6 +271,6 @@
 
 <script src="config.js?v=2"></script>
 <script src="assets/vendor/supabase-2.45.4.js"></script>
-<script src="assets/app.js?v=8"></script>
+<script src="assets/app.js?v=9"></script>
 </body>
 </html>

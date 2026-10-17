@@ -113,7 +113,7 @@
     reto: { nome: "Cantos retos", btn: "2px", card: "2px", field: "2px" }
   };
   const COLOR_KEYS = [
-    { k: "principal", nome: "Principal", uso: "Botões, links, títulos de cartões e tela de login" },
+    { k: "principal", nome: "Principal", uso: "Botões (inclusive o Entrar da capa), links e títulos de cartões" },
     { k: "secundaria", nome: "Secundária", uso: "Marcadores e detalhes" },
     { k: "destaque", nome: "Destaque", uso: "Botão Sair, avisos de prévia e foco do teclado" },
     { k: "texto", nome: "Texto", uso: "Textos e títulos" },
@@ -125,7 +125,6 @@
     nome: "Copplasa",
     portalNome: "Portal Copplasa",
     slogan: "seu par em seguros e benefícios",
-    loginTexto: "Comunicados, relatórios e canais de atendimento para clientes, parceiros e equipe Copplasa.",
     logo: "assets/marca/logo.svg",
     logoClaro: "assets/marca/logo-branco.svg",
     icone: "assets/marca/icone.png",
@@ -133,6 +132,16 @@
     fontes: { titulos: "EB Garamond", texto: "Lato" },
     titulosMinusculos: true,
     formato: "pilula",
+    // Capa: a tela de login, configurada à parte do site interno
+    capa: {
+      titulo: "Portal Copplasa",
+      texto: "Comunicados, relatórios e canais de atendimento para clientes, parceiros e equipe Copplasa.",
+      instrucao: "Use o e-mail e a senha que a Copplasa cadastrou para você.",
+      logo: "assets/marca/logo-branco.svg",
+      fundo: "#006CD1",
+      imagem: "",
+      veu: 60
+    },
     empresa: {
       descricao: "Mais do que uma consultoria: uma parceira estratégica em benefícios e seguros, cuidando do que realmente importa: as pessoas.",
       email: "contato@copplasa.com.br",
@@ -199,6 +208,17 @@
     if (FONTS_TEXTO.indexOf(b.fontes.texto) < 0) b.fontes.texto = DEFAULT_BRAND.fontes.texto;
     if (!FORMATOS[b.formato]) b.formato = DEFAULT_BRAND.formato;
     ["logo", "logoClaro", "icone"].forEach((k) => { if (!safeImg(b[k])) b[k] = DEFAULT_BRAND[k]; });
+    // Aparência publicada antes de a capa ter configuração própria: a capa continua como era
+    if (!raw || !raw.capa || typeof raw.capa !== "object") {
+      b.capa.titulo = b.portalNome;
+      if (raw && typeof raw.loginTexto === "string") b.capa.texto = raw.loginTexto;
+      b.capa.logo = b.logoClaro;
+      b.capa.fundo = b.cores.principal;
+    }
+    if (!isHex(b.capa.fundo)) b.capa.fundo = b.cores.principal;
+    if (!safeImg(b.capa.logo)) b.capa.logo = DEFAULT_BRAND.capa.logo;
+    if (!safeImg(b.capa.imagem)) b.capa.imagem = "";
+    b.capa.veu = Math.min(90, Math.max(0, Math.round(b.capa.veu) || 0));
     b.empresa.unidades = b.empresa.unidades.filter((u) => u && typeof u === "object");
     b.empresa.links = b.empresa.links.filter((l) => l && typeof l === "object");
     return b;
@@ -232,7 +252,15 @@
     const link = $("#brand-fonts");
     if (link.getAttribute("href") !== href) link.setAttribute("href", href);
     document.querySelectorAll('[data-logo="cor"]').forEach((img) => { img.src = b.logo; img.alt = b.nome; });
-    document.querySelectorAll('[data-logo="claro"]').forEach((img) => { img.src = b.logoClaro; img.alt = b.nome; });
+    const capa = b.capa;
+    const sobreCapa = onColor(capa.fundo);
+    st.setProperty("--capa-fundo", capa.fundo);
+    st.setProperty("--capa-sobre", sobreCapa);
+    st.setProperty("--capa-imagem", capa.imagem ? "url(" + JSON.stringify(new URL(capa.imagem, document.baseURI).href) + ")" : "none");
+    st.setProperty("--capa-veu", (capa.imagem ? capa.veu : 100) + "%");
+    st.setProperty("--capa-sombra", !capa.imagem ? "none" : sobreCapa === "#FFFFFF" ? "0 1px 14px rgba(0, 0, 0, .45)" : "0 1px 14px rgba(255, 255, 255, .6)");
+    document.querySelectorAll('[data-logo="capa"]').forEach((img) => { img.src = capa.logo; img.alt = b.nome; });
+    document.querySelectorAll("[data-capa]").forEach((el) => { el.textContent = capa[el.dataset.capa] || ""; });
     $("#brand-icon").setAttribute("href", b.icone);
     document.querySelectorAll("[data-brand]").forEach((el) => { el.textContent = b[el.dataset.brand] || ""; });
     const theme = document.querySelector('meta[name="theme-color"]');
@@ -300,7 +328,7 @@
   let brandLoadedAt = null;
   let brandSetupMissing = false;
   let brandDraft = null;
-  let brandTab = "marca";
+  let brandTab = "capa";
   let brandBusy = false;
   let brandStatusLocked = false;
 
@@ -822,21 +850,105 @@
     accessStatus("Carregando...");
     await loadAccess();
   }
-  async function loadAccess() {
-    let acc, emp;
+  // Logins, grupos e quantos relatórios cada grupo vê. null se não foi possível carregar.
+  async function fetchAccess() {
+    let acc, emp, rel;
     try {
-      [acc, emp] = await Promise.all([
+      [acc, emp, rel] = await Promise.all([
         sb.rpc("portal_listar_acessos"),
-        sb.from("portal_empresas").select("id, nome").order("nome")
+        sb.from("portal_empresas").select("id, nome").order("nome"),
+        sb.from("portal_relatorios").select("id, empresa_id" + (multiGroups ? ", grupos:portal_relatorio_grupos(empresa_id)" : ""))
       ]);
     } catch (_) {
-      acc = { error: true };
+      return null;
     }
-    if (acc.error || !emp || emp.error) { accessStatus("Não foi possível carregar os acessos. Recarregue a página e tente de novo.", "err"); return; }
-    people = acc.data || [];
-    empresas = emp.data || [];
+    if (acc.error || emp.error) return null;
+    // Sem a contagem de relatórios, nenhum grupo pode ser excluído (relatoriosPorGrupo = null)
+    let relatoriosPorGrupo = null;
+    if (!rel.error) {
+      relatoriosPorGrupo = {};
+      (rel.data || []).forEach((r) => {
+        const ids = new Set((r.grupos || []).map((g) => g.empresa_id));
+        if (r.empresa_id) ids.add(r.empresa_id);
+        ids.forEach((id) => { relatoriosPorGrupo[id] = (relatoriosPorGrupo[id] || 0) + 1; });
+      });
+    }
+    return { people: acc.data || [], empresas: emp.data || [], relatoriosPorGrupo };
+  }
+  let groupReports = null;
+  async function loadAccess() {
+    const r = await fetchAccess();
+    if (!r) { accessStatus("Não foi possível carregar os acessos. Recarregue a página e tente de novo.", "err"); return false; }
+    people = r.people;
+    empresas = r.empresas;
+    groupReports = r.relatoriosPorGrupo;
     renderAccess();
     accessStatus(people.length === 1 ? "1 login cadastrado." : people.length + " logins cadastrados.");
+    return true;
+  }
+  function groupUse(id) {
+    return {
+      logins: people.filter((p) => p.empresa_id === id).length,
+      relatorios: groupReports ? groupReports[id] || 0 : null
+    };
+  }
+  let groupDeleteArmed = null;
+  function renderGroups() {
+    if (groupDeleteArmed) { clearTimeout(groupDeleteArmed.timer); groupDeleteArmed = null; }
+    if (!empresas.length) { $("#group-list").innerHTML = '<p class="ed-empty">Nenhum grupo cadastrado.</p>'; return; }
+    $("#group-list").innerHTML = empresas.map((g) => {
+      const u = groupUse(g.id);
+      const partes = [];
+      if (u.logins) partes.push(u.logins === 1 ? "1 login" : u.logins + " logins");
+      if (u.relatorios) partes.push(u.relatorios === 1 ? "1 relatório" : u.relatorios + " relatórios");
+      const livre = u.relatorios === 0 && !u.logins;
+      const uso = partes.length ? "Em uso: " + partes.join(" · ") : livre ? "Sem uso" : "Não foi possível conferir o uso";
+      return '<div class="group-row"><div class="group-who"><span class="group-name">' + esc(g.nome) + '</span><span class="group-use">' + esc(uso) + "</span></div>" +
+        (livre ? '<button type="button" class="btn btn-ghost btn-sm" data-group-delete="' + esc(g.id) + '" aria-label="Excluir o grupo ' + esc(g.nome) + '">Excluir</button>' : "") + "</div>";
+    }).join("");
+  }
+  async function deleteGroup(btn) {
+    const id = btn.dataset.groupDelete;
+    const g = empresas.find((e) => e.id === id);
+    if (!g) return;
+    if (!groupDeleteArmed || groupDeleteArmed.id !== id) {
+      renderGroups();
+      const b = $('#group-list [data-group-delete="' + id + '"]');
+      if (!b) return;
+      b.textContent = "Confirmar exclusão";
+      b.classList.add("btn-danger");
+      b.focus();
+      groupDeleteArmed = { id, timer: setTimeout(() => { groupDeleteArmed = null; renderGroups(); }, 4000) };
+      return;
+    }
+    clearTimeout(groupDeleteArmed.timer);
+    groupDeleteArmed = null;
+    btn.disabled = true;
+    accessStatus("Excluindo o grupo “" + g.nome + "”...");
+    // Confere de novo, na hora, se o grupo continua sem uso
+    const r = await fetchAccess();
+    if (!r) { renderGroups(); accessStatus("Não foi possível excluir o grupo. Verifique sua conexão e tente de novo.", "err"); return; }
+    people = r.people; empresas = r.empresas; groupReports = r.relatoriosPorGrupo;
+    renderAccess();
+    if (!empresas.some((e) => e.id === id)) { accessStatus("O grupo “" + g.nome + "” já tinha sido excluído.", "ok"); return; }
+    const u = groupUse(id);
+    if (u.logins || u.relatorios !== 0) {
+      accessStatus("O grupo “" + g.nome + "” está em uso e não foi excluído. Mude o acesso das pessoas desse grupo e tire o grupo dos relatórios antes de excluir.", "err");
+      return;
+    }
+    let res;
+    try { res = await sb.from("portal_empresas").delete().eq("id", id).select("id"); }
+    catch (e) { res = { error: e }; }
+    if (res.error || !res.data || !res.data.length) {
+      await loadAccess();
+      accessStatus(res.error && res.error.code === "23503"
+        ? "O grupo “" + g.nome + "” ainda está ligado a um relatório e não foi excluído."
+        : "Não foi possível excluir o grupo “" + g.nome + "”. Tente de novo.", "err");
+      return;
+    }
+    await loadAccess();
+    $("#new-empresa").focus();
+    accessStatus("Grupo “" + g.nome + "” excluído.", "ok");
   }
   function accessValue(p) {
     if (p.editor) return "editor";
@@ -857,6 +969,7 @@
       const p = people.find((x) => x.user_id === s.dataset.user);
       s.value = accessValue(p);
     });
+    renderGroups();
   }
   async function changeAccess(sel) {
     const p = people.find((x) => x.user_id === sel.dataset.user);
@@ -881,24 +994,25 @@
     }
     p.equipe = v === "equipe";
     p.empresa_id = v.indexOf("empresa:") === 0 ? v.slice(8) : null;
+    renderGroups();
     accessStatus("Acesso de " + p.email + " atualizado.", "ok");
   }
   async function addEmpresa() {
     const input = $("#new-empresa");
     const nome = input.value.trim();
-    if (!nome) { accessStatus("Digite o nome da empresa.", "err"); input.focus(); return; }
+    if (!nome) { accessStatus("Digite o nome da empresa ou do grupo.", "err"); input.focus(); return; }
     $("#add-empresa").disabled = true;
     let res;
     try { res = await sb.from("portal_empresas").insert({ nome }).select("id"); }
     catch (e) { res = { error: e }; }
     $("#add-empresa").disabled = false;
     if (res.error) {
-      accessStatus(res.error.code === "23505" ? "Essa empresa já está cadastrada." : "Não foi possível cadastrar a empresa. Tente de novo.", "err");
+      accessStatus(res.error.code === "23505" ? "Esse grupo já está cadastrado." : "Não foi possível cadastrar o grupo. Tente de novo.", "err");
       return;
     }
     input.value = "";
     await loadAccess();
-    accessStatus("Empresa “" + nome + "” cadastrada. Agora escolha quem é dessa empresa.", "ok");
+    accessStatus("Grupo “" + nome + "” cadastrado. Agora escolha quem faz parte dele.", "ok");
   }
 
   // ---------- Rascunho ----------
@@ -1220,8 +1334,9 @@
     if (!brandDraft) applyBrand(brand);
   }
   const BRAND_TABS = [
-    { k: "marca", label: "Marca e logos" },
-    { k: "cores", label: "Cores" },
+    { k: "capa", label: "Capa (login)" },
+    { k: "marca", label: "Site interno" },
+    { k: "cores", label: "Cores do site" },
     { k: "tipografia", label: "Fontes e formato" },
     { k: "empresa", label: "Informações da empresa" }
   ];
@@ -1283,13 +1398,31 @@
       : "<input id=\"" + id + "\" " + attrs + ' value="' + esc(value) + '">';
     return '<div class="field"><label for="' + id + '">' + esc(label) + "</label>" + ctl + (hint ? '<p class="field-hint">' + esc(hint) + "</p>" : "") + "</div>";
   }
-  function logoField(k, label, hint, bg) {
+  // k é o caminho do campo na marca, como "logo" ou "capa.imagem"
+  const getPath = (o, k) => k.split(".").reduce((v, p) => (v == null ? v : v[p]), o);
+  function setPath(o, k, v) {
+    const ps = k.split(".");
+    const last = ps.pop();
+    ps.reduce((x, p) => x[p], o)[last] = v;
+  }
+  function logoField(k, label, hint, bg, resetLabel) {
+    const src = safeImg(getPath(brandDraft, k)) || getPath(DEFAULT_BRAND, k);
+    const reset = resetLabel || "Usar o logo do site da Copplasa";
     return '<div class="field"><p class="field-label">' + esc(label) + "</p>" +
-      '<div class="logo-field"><div class="logo-preview ' + bg + '"><img src="' + esc(safeImg(brandDraft[k]) || DEFAULT_BRAND[k]) + '" alt=""></div>' +
+      '<div class="logo-field"><div class="logo-preview ' + bg + '">' + (src ? '<img src="' + esc(src) + '" alt="">' : "<span>Sem imagem</span>") + "</div>" +
       '<div class="logo-actions"><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-logo-input="' + k + '" aria-label="Enviar ' + esc(label.toLowerCase()) + '">' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-logo-reset="' + k + '">Usar o logo do site da Copplasa</button></div></div>' +
+      (src || getPath(DEFAULT_BRAND, k) ? '<button type="button" class="btn btn-ghost btn-sm" data-logo-reset="' + k + '">' + esc(reset) + "</button>" : "") + "</div></div>" +
       '<p class="field-hint">' + esc(hint) + "</p></div>";
   }
+  // k é a cor dentro de "cores" (ex.: "principal") ou um caminho completo (ex.: "capa.fundo")
+  function colorRow(k, nome, uso, valor) {
+    const padrao = getPath(DEFAULT_BRAND, k.indexOf(".") < 0 ? "cores." + k : k);
+    return '<div class="color-row"><input type="color" id="b-cor-' + k.replace(".", "-") + '" data-color="' + k + '" value="' + esc((isHex(valor) ? valor : padrao).toLowerCase()) + '" aria-label="Cor ' + esc(nome.toLowerCase()) + '">' +
+      '<div class="color-name"><strong>' + esc(nome) + "</strong><span>" + esc(uso) + "</span></div>" +
+      '<input type="text" data-color-hex="' + k + '" value="' + esc(valor) + '" maxlength="7" aria-label="Código da cor ' + esc(nome.toLowerCase()) + '">' +
+      '<p class="color-warn" data-color-warn="' + k + '" hidden></p></div>';
+  }
+  const colorPath = (k) => (k.indexOf(".") < 0 ? "cores." + k : k);
   function colorWarnings(c) {
     const w = {};
     const ok = (k) => isHex(c[k]);
@@ -1301,6 +1434,7 @@
   }
   function renderColorWarnings() {
     const w = colorWarnings(brandDraft.cores);
+    if (brandDraft.capa.imagem && brandDraft.capa.veu < 40) w["capa.veu"] = "Com pouca cor sobre a imagem, o texto da capa pode ficar difícil de ler. Confira na prévia.";
     document.querySelectorAll("[data-color-warn]").forEach((el) => {
       const msg = w[el.dataset.colorWarn] || "";
       el.textContent = msg;
@@ -1319,25 +1453,42 @@
   function renderBrandBody() {
     const b = brandDraft;
     let html = "";
-    if (brandTab === "marca") {
-      html = inputField("b-nome", "Nome da empresa", 'type="text" maxlength="60" data-b="nome"', b.nome) +
-        inputField("b-portalNome", "Nome do portal", 'type="text" maxlength="60" data-b="portalNome"', b.portalNome, "Aparece no topo, na tela de login e na aba do navegador.") +
+    if (brandTab === "capa") {
+      const c = b.capa;
+      html = '<p class="ed-hint">A capa é a tela de login, que todos veem antes de entrar. O que você muda aqui não altera o site interno.</p>' +
+        '<div class="capa-preview" aria-hidden="true"><img data-logo="capa" src="' + esc(c.logo) + '" alt="">' +
+          '<strong data-capa="titulo">' + esc(c.titulo) + '</strong><span data-capa="texto">' + esc(c.texto) + "</span></div>" +
+        inputField("b-capa-titulo", "Título da capa", 'type="text" maxlength="80" data-c="titulo"', c.titulo) +
+        inputField("b-capa-texto", "Texto da capa", 'maxlength="300" data-c="texto"', c.texto, "", true) +
+        inputField("b-capa-instrucao", "Instrução do formulário de login", 'type="text" maxlength="160" data-c="instrucao"', c.instrucao, "Aparece abaixo de “Entrar”, ao lado dos campos de e-mail e senha.") +
+        '<p class="ed-section-title">Visual da capa</p>' +
+        logoField("capa.logo", "Logo da capa", "Fica sobre a cor ou a imagem de fundo: use uma versão do logo que apareça bem sobre elas.", "on-capa", "Usar o logo branco da Copplasa") +
+        colorRow("capa.fundo", "Cor de fundo", "Fundo da capa e cor aplicada sobre a imagem", c.fundo) +
+        logoField("capa.imagem", "Imagem de fundo (opcional)", "Uma foto ou ilustração, de preferência larga. É reduzida automaticamente.", "on-capa-img", "Remover imagem") +
+        (c.imagem
+          ? '<div class="field"><label for="b-capa-veu">Cor sobre a imagem: <span id="b-capa-veu-valor">' + c.veu + "%</span></label>" +
+            '<input id="b-capa-veu" type="range" min="0" max="90" step="5" value="' + c.veu + '" data-c="veu">' +
+            '<p class="field-hint">Quanto mais cor, mais fácil de ler o texto da capa e menos aparece a imagem.</p>' +
+            '<p class="color-warn" data-color-warn="capa.veu" hidden></p></div>'
+          : "") +
+        '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="capa">Restaurar a capa padrão da Copplasa</button>';
+    } else if (brandTab === "marca") {
+      html = '<p class="ed-hint">O site interno é o que aparece depois do login. O título, o texto e o logo da tela de login ficam na aba Capa.</p>' +
+        inputField("b-nome", "Nome da empresa", 'type="text" maxlength="60" data-b="nome"', b.nome) +
+        inputField("b-portalNome", "Nome do portal", 'type="text" maxlength="60" data-b="portalNome"', b.portalNome, "Aparece no topo do site interno e na aba do navegador.") +
         inputField("b-slogan", "Slogan", 'type="text" maxlength="120" data-b="slogan"', b.slogan) +
-        inputField("b-loginTexto", "Texto da tela de login", 'maxlength="300" data-b="loginTexto"', b.loginTexto, "", true) +
         '<p class="ed-section-title">Logos</p>' +
-        logoField("logo", "Logo colorido", "Topo do portal, sobre fundo branco. PNG, SVG, JPG ou WEBP.", "on-light") +
-        logoField("logoClaro", "Logo branco", "Tela de login e rodapé, sobre fundo colorido.", "on-brand") +
+        logoField("logo", "Logo colorido", "Topo do site interno, sobre fundo branco. PNG, SVG, JPG ou WEBP.", "on-light") +
+        logoField("logoClaro", "Logo branco", "Rodapé, sobre a cor do rodapé.", "on-footer") +
         logoField("icone", "Ícone da aba do navegador", "Imagem quadrada. É reduzida automaticamente.", "on-icon");
     } else if (brandTab === "cores") {
-      html = COLOR_KEYS.map(({ k, nome, uso }) =>
-        '<div class="color-row"><input type="color" id="b-cor-' + k + '" data-color="' + k + '" value="' + esc((isHex(b.cores[k]) ? b.cores[k] : DEFAULT_BRAND.cores[k]).toLowerCase()) + '" aria-label="Cor ' + esc(nome.toLowerCase()) + '">' +
-        '<div class="color-name"><strong>' + esc(nome) + "</strong><span>" + esc(uso) + "</span></div>" +
-        '<input type="text" data-color-hex="' + k + '" value="' + esc(b.cores[k]) + '" maxlength="7" aria-label="Código da cor ' + esc(nome.toLowerCase()) + '">' +
-        '<p class="color-warn" data-color-warn="' + k + '" hidden></p></div>').join("") +
+      html = '<p class="ed-hint">Cores do site interno. A cor de fundo da capa fica na aba Capa.</p>' +
+        COLOR_KEYS.map(({ k, nome, uso }) => colorRow(k, nome, uso, b.cores[k])).join("") +
         '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="cores">Restaurar as cores do site da Copplasa</button>';
     } else if (brandTab === "tipografia") {
       const opts = (list, v) => list.map((n) => '<option value="' + esc(n) + '"' + (n === v ? " selected" : "") + ">" + esc(n) + "</option>").join("");
-      html = '<div class="field"><label for="b-font-titulos">Fonte dos títulos</label><select id="b-font-titulos" data-font="titulos">' + opts(FONTS_TITULOS, b.fontes.titulos) + "</select>" +
+      html = '<p class="ed-hint">Valem para a capa e para o site interno.</p>' +
+        '<div class="field"><label for="b-font-titulos">Fonte dos títulos</label><select id="b-font-titulos" data-font="titulos">' + opts(FONTS_TITULOS, b.fontes.titulos) + "</select>" +
           '<p class="font-sample" style="font-family: var(--font-display); text-transform: var(--title-transform)">Gestão de benefícios e seguros</p></div>' +
         '<div class="field"><label for="b-font-texto">Fonte dos textos</label><select id="b-font-texto" data-font="texto">' + opts(FONTS_TEXTO, b.fontes.texto) + "</select>" +
           '<p class="font-sample" style="font-family: var(--font-body); font-size: 1rem">Comunicados, relatórios e contatos para clientes, parceiros e equipe.</p></div>' +
@@ -1362,7 +1513,7 @@
         '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="empresa">Restaurar as informações do site da Copplasa</button>';
     }
     $("#brand-body").innerHTML = html;
-    if (brandTab === "cores") renderColorWarnings();
+    if (brandTab === "cores" || brandTab === "capa") renderColorWarnings();
   }
   function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -1372,19 +1523,35 @@
       r.readAsDataURL(file);
     });
   }
-  async function readImage(file, maxSide) {
+  async function readImage(file, maxSide, foto) {
     if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) throw new Error("tipo");
     if (file.type === "image/svg+xml") {
       if (file.size > 300 * 1024) throw new Error("grande");
       return fileToDataUrl(file);
     }
-    if (file.size > 10 * 1024 * 1024) throw new Error("grande");
+    if (file.size > (foto ? 25 : 10) * 1024 * 1024) throw new Error("grande");
     const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
     const cv = document.createElement("canvas");
-    cv.width = Math.max(1, Math.round(bmp.width * scale));
-    cv.height = Math.max(1, Math.round(bmp.height * scale));
-    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    const draw = (side) => {
+      const scale = Math.min(1, side / Math.max(bmp.width, bmp.height));
+      cv.width = Math.max(1, Math.round(bmp.width * scale));
+      cv.height = Math.max(1, Math.round(bmp.height * scale));
+      const ctx = cv.getContext("2d");
+      if (foto) { ctx.fillStyle = brandDraft.capa.fundo; ctx.fillRect(0, 0, cv.width, cv.height); }
+      ctx.drawImage(bmp, 0, 0, cv.width, cv.height);
+    };
+    if (foto) {
+      // Foto de fundo: JPEG, bem menor que PNG; reduz mais até caber
+      for (const side of [maxSide, 1400, 1000]) {
+        draw(side);
+        for (const q of [0.82, 0.7, 0.6]) {
+          const u = cv.toDataURL("image/jpeg", q);
+          if (u.length <= 700 * 1024) return u;
+        }
+      }
+      throw new Error("grande");
+    }
+    draw(maxSide);
     let url = cv.toDataURL("image/png");
     if (url.length > 450 * 1024) url = cv.toDataURL("image/webp", 0.9);
     if (url.length > 450 * 1024) throw new Error("grande");
@@ -1396,7 +1563,7 @@
     if (!file || !brandDraft) return;
     brandStatus("Preparando a imagem...", "", true);
     try {
-      brandDraft[k] = await readImage(file, k === "icone" ? 128 : 900);
+      setPath(brandDraft, k, await readImage(file, k === "icone" ? 128 : k === "capa.imagem" ? 1920 : 900, k === "capa.imagem"));
       brandStatusLocked = false;
       renderBrandBody();
       brandChanged();
@@ -1412,6 +1579,14 @@
     if (!brandDraft || !el.dataset) return;
     const d = el.dataset;
     if (d.b) brandDraft[d.b] = el.value;
+    else if (d.c) {
+      if (d.c === "veu") {
+        brandDraft.capa.veu = Number(el.value);
+        const v = $("#b-capa-veu-valor");
+        if (v) v.textContent = brandDraft.capa.veu + "%";
+        renderColorWarnings();
+      } else brandDraft.capa[d.c] = el.value;
+    }
     else if (d.e) brandDraft.empresa[d.e] = el.value.trim() === "" ? "" : el.value;
     else if (d.r) brandDraft.empresa.redes[d.r] = el.value.trim();
     else if (d.list) {
@@ -1423,14 +1598,14 @@
         if (head) head.textContent = el.value || "Sem título";
       }
     } else if (d.color) {
-      brandDraft.cores[d.color] = el.value.toUpperCase();
+      setPath(brandDraft, colorPath(d.color), el.value.toUpperCase());
       const hex = $('#brand-body [data-color-hex="' + d.color + '"]');
-      if (hex) hex.value = brandDraft.cores[d.color];
+      if (hex) hex.value = el.value.toUpperCase();
       renderColorWarnings();
     } else if (d.colorHex) {
       let v = el.value.trim();
       if (v && v[0] !== "#") v = "#" + v;
-      brandDraft.cores[d.colorHex] = v.toUpperCase();
+      setPath(brandDraft, colorPath(d.colorHex), v.toUpperCase());
       if (isHex(v)) { const sw = $('#brand-body [data-color="' + d.colorHex + '"]'); if (sw) sw.value = v.toLowerCase(); }
       renderColorWarnings();
     } else if (d.font) brandDraft.fontes[d.font] = el.value;
@@ -1444,6 +1619,8 @@
     for (const { k, nome } of COLOR_KEYS) {
       if (!isHex(b.cores[k])) return { tab: "cores", id: null, msg: "O código da cor " + nome.toLowerCase() + " precisa estar no formato #RRGGBB, por exemplo #006CD1." };
     }
+    if (!isHex(b.capa.fundo)) return { tab: "capa", id: null, msg: "O código da cor de fundo da capa precisa estar no formato #RRGGBB, por exemplo #006CD1." };
+    if (!String(b.capa.titulo).trim()) return { tab: "capa", id: "b-capa-titulo", msg: "Preencha o título da capa." };
     if (!String(b.nome).trim()) return { tab: "marca", id: "b-nome", msg: "Preencha o nome da empresa." };
     if (!String(b.portalNome).trim()) return { tab: "marca", id: "b-portalNome", msg: "Preencha o nome do portal." };
     const e = b.empresa;
@@ -1456,7 +1633,7 @@
       if (!String(e.links[i].titulo || "").trim()) return { tab: "empresa", id: "b-links-" + i + "-titulo", msg: "Dê um título ao link " + (i + 1) + " do rodapé." };
       if (!safeUrl(e.links[i].url)) return { tab: "empresa", id: "b-links-" + i + "-url", msg: "O link " + (i + 1) + " do rodapé precisa começar com https://." };
     }
-    if (JSON.stringify(b).length > 1.5 * 1024 * 1024) return { tab: "marca", id: null, msg: "Os logos estão grandes demais. Use imagens menores." };
+    if (JSON.stringify(b).length > 2 * 1024 * 1024) return { tab: b.capa.imagem ? "capa" : "marca", id: null, msg: "As imagens (logos e fundo da capa) estão grandes demais. Use imagens menores." };
     return null;
   }
   async function publishBrand() {
@@ -1509,12 +1686,13 @@
     const t = e.target.closest("[data-logo-reset], [data-list-add], [data-list-remove], [data-reset]");
     if (!t) return;
     const d = t.dataset;
-    if (d.logoReset) brandDraft[d.logoReset] = DEFAULT_BRAND[d.logoReset];
+    if (d.logoReset) setPath(brandDraft, d.logoReset, getPath(DEFAULT_BRAND, d.logoReset));
     else if (d.listAdd) brandDraft.empresa[d.listAdd].push(d.listAdd === "unidades" ? { nome: "", endereco: "", mapa: "" } : { titulo: "", url: "" });
     else if (d.listRemove) brandDraft.empresa[d.listRemove].splice(+d.idx, 1);
     else if (d.reset === "cores") brandDraft.cores = clone(DEFAULT_BRAND.cores);
     else if (d.reset === "tipografia") { brandDraft.fontes = clone(DEFAULT_BRAND.fontes); brandDraft.titulosMinusculos = DEFAULT_BRAND.titulosMinusculos; brandDraft.formato = DEFAULT_BRAND.formato; }
     else if (d.reset === "empresa") brandDraft.empresa = clone(DEFAULT_BRAND.empresa);
+    else if (d.reset === "capa") brandDraft.capa = clone(DEFAULT_BRAND.capa);
     renderBrandBody();
     brandChanged();
   });
@@ -1555,6 +1733,7 @@
   $("#access-close").addEventListener("click", () => { $("#access-panel").hidden = true; if (!anyPanelOpen()) hidePanels(); loadReports(); });
   $("#access-list").addEventListener("change", (e) => { if (e.target.matches("select[data-user]")) changeAccess(e.target); });
   $("#add-empresa").addEventListener("click", addEmpresa);
+  $("#group-list").addEventListener("click", (e) => { const b = e.target.closest("[data-group-delete]"); if (b && !b.disabled) deleteGroup(b); });
   $("#new-empresa").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addEmpresa(); } });
 
   $("#viewer-back").addEventListener("click", () => closeReport(false));

@@ -62,13 +62,13 @@ A aparência padrão segue o site da Copplasa: azul `#006CD1`, ciano `#00D1CE`, 
 
 Pelo site, quem é editor clica em **Aparência** e muda:
 
-- **Capa (login):** a tela de login, configurada à parte do site interno: título, texto, instrução do formulário, logo, cor de fundo e uma imagem de fundo opcional (com a intensidade da cor sobre ela), com prévia no próprio painel;
-- **Site interno:** nome da empresa e do portal, slogan, logo colorido (topo), logo branco (rodapé) e ícone da aba;
+- **Capa (login):** a tela de login, configurada à parte do site interno. Cada parte tem um bloco próprio: logo (imagem, tamanho, mostrar ou não), título, texto, título e instrução do formulário (texto, fonte, tamanho e cor de cada um), fundo da capa (cor e imagem opcional, com a intensidade da cor sobre ela) e cores do formulário (fundo e botão Entrar). Há uma prévia no painel e o botão "Ver a capa em tela cheia";
+- **Site interno:** nome da empresa e, em blocos próprios, logo do topo, slogan, título (nome do portal), texto de apresentação, menu, títulos e subtítulos das seções (com os nomes de cada seção), textos das seções, logo do rodapé e ícone da aba;
 - **Cores do site:** sete cores do site interno, com aviso quando o contraste fica baixo;
-- **Fontes e formato:** fonte dos títulos e dos textos, títulos em minúsculas e formato dos botões e cartões (valem para a capa e para o site interno);
+- **Fontes e formato:** fontes padrão dos títulos e dos textos, títulos em minúsculas e formato dos botões e cartões (valem para a capa e para o site interno; cada parte pode usar outra fonte);
 - **Informações da empresa:** descrição, e-mail, telefone, WhatsApp, site, redes sociais, unidades e links do rodapé.
 
-As mudanças aparecem como prévia só para quem está editando e passam a valer para todos ao clicar em **Publicar**. Cada seção tem um botão para voltar ao padrão do site da Copplasa.
+Nenhum texto é obrigatório: texto em branco simplesmente não aparece. O tamanho escolhido vale em telas grandes; em telas estreitas, textos grandes diminuem um pouco para caber. As mudanças aparecem como prévia só para quem está editando e passam a valer para todos ao clicar em **Publicar**. Cada seção tem um botão para voltar ao padrão do site da Copplasa.
 
 ## 4. Publicar no GitHub Pages
 

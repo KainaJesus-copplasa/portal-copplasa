@@ -107,13 +107,14 @@
   const SERIF_FONTS = ["EB Garamond", "Playfair Display", "Lora", "Merriweather", "Source Serif 4", "Libre Baskerville"];
   const FONTS_TITULOS = ["EB Garamond", "Playfair Display", "Lora", "Merriweather", "Source Serif 4", "Libre Baskerville", "Montserrat", "Poppins", "Lato", "Raleway", "Work Sans", "Nunito"];
   const FONTS_TEXTO = ["Lato", "Open Sans", "Roboto", "Inter", "Nunito", "Source Sans 3", "Montserrat", "Poppins", "Work Sans", "Raleway", "Merriweather"];
+  const FONTS_ALL = FONTS_TITULOS.concat(FONTS_TEXTO.filter((n) => FONTS_TITULOS.indexOf(n) < 0));
   const FORMATOS = {
     pilula: { nome: "Arredondado", btn: "999px", card: "16px", field: "10px" },
     suave: { nome: "Cantos suaves", btn: "8px", card: "10px", field: "6px" },
     reto: { nome: "Cantos retos", btn: "2px", card: "2px", field: "2px" }
   };
   const COLOR_KEYS = [
-    { k: "principal", nome: "Principal", uso: "Botões (inclusive o Entrar da capa), links e títulos de cartões" },
+    { k: "principal", nome: "Principal", uso: "Botões, links e títulos de cartões" },
     { k: "secundaria", nome: "Secundária", uso: "Marcadores e detalhes" },
     { k: "destaque", nome: "Destaque", uso: "Botão Sair, avisos de prévia e foco do teclado" },
     { k: "texto", nome: "Texto", uso: "Textos e títulos" },
@@ -121,12 +122,31 @@
     { k: "fundoSuave", nome: "Fundo suave", uso: "Topo e faixas alternadas" },
     { k: "rodape", nome: "Rodapé", uso: "Fundo do rodapé" }
   ];
+  const formTextColor = (b) => (contrast(b.cores.texto, b.capa.formFundo) >= 4.5 ? b.cores.texto : onColor(b.capa.formFundo));
+  // Partes de texto: texto (vazio = não aparece), fonte ("" = a padrão), tamanho em px e cor ("" = automática).
+  // papel diz qual fonte padrão vale (títulos ou textos); auto é a cor usada quando não há cor própria.
+  const PARTES = {
+    "capa.titulo": { nome: "Título", papel: "titulo", min: 20, max: 96, len: 120, auto: (b) => onColor(b.capa.fundo), autoNome: "contrasta com o fundo da capa" },
+    "capa.texto": { nome: "Texto", papel: "texto", min: 12, max: 32, len: 400, linhas: true, auto: (b) => onColor(b.capa.fundo), autoNome: "contrasta com o fundo da capa" },
+    "capa.formTitulo": { nome: "Título do formulário", papel: "titulo", min: 16, max: 64, len: 60, auto: formTextColor, autoNome: "contrasta com o fundo do formulário" },
+    "capa.instrucao": { nome: "Instrução do formulário", papel: "texto", min: 12, max: 24, len: 200, linhas: true, auto: formTextColor, autoNome: "contrasta com o fundo do formulário" },
+    "interno.slogan": { nome: "Slogan", papel: "texto", min: 12, max: 40, len: 120, auto: (b) => b.cores.principal, autoNome: "cor principal do site" },
+    "interno.titulo": { nome: "Título (nome do portal)", papel: "titulo", min: 20, max: 110, len: 80, auto: (b) => b.cores.texto, autoNome: "cor de texto do site" },
+    "interno.apresentacao": { nome: "Texto de apresentação", papel: "texto", min: 12, max: 32, nota: "O texto em si é escrito em Editar conteúdo > Boas-vindas.", auto: (b) => b.cores.texto, autoNome: "cor de texto do site" },
+    "interno.menu": { nome: "Menu", papel: "texto", min: 12, max: 24, nota: "O menu usa os títulos das seções; seção sem título aparece no menu com o nome padrão.", auto: (b) => b.cores.texto, autoNome: "cor de texto do site" },
+    "interno.secoes": { nome: "Títulos das seções", papel: "titulo", min: 18, max: 72, auto: (b) => b.cores.texto, autoNome: "cor de texto do site" },
+    "interno.subtitulos": { nome: "Subtítulos das seções", papel: "texto", min: 12, max: 24, auto: (b) => b.cores.texto, autoNome: "cor de texto do site, um pouco mais clara" },
+    "interno.textos": { nome: "Textos das seções", papel: "texto", min: 12, max: 24, nota: "Avisos, contatos e cartões de relatório. A cor desses textos fica em Cores do site." }
+  };
+  // Imagens com tamanho próprio e opção de esconder
+  const LOGOS = {
+    "capa.logo": { nome: "Logo", medida: "Largura", min: 60, max: 420, bg: "on-capa", dica: "Fica sobre a cor ou a imagem de fundo: use uma versão do logo que apareça bem sobre elas.", reset: "Usar o logo branco da Copplasa" },
+    "interno.logo": { nome: "Logo do topo", medida: "Altura", min: 20, max: 120, bg: "on-light", dica: "Topo do site interno, sobre fundo branco. PNG, SVG, JPG ou WEBP.", reset: "Usar o logo do site da Copplasa" },
+    "interno.rodapeLogo": { nome: "Logo do rodapé", medida: "Largura", min: 60, max: 320, bg: "on-footer", dica: "Rodapé, sobre a cor do rodapé.", reset: "Usar o logo branco da Copplasa" }
+  };
+  const SECOES = [{ k: "relatorios", nome: "Relatórios" }, { k: "avisos", nome: "Avisos" }, { k: "contatos", nome: "Contatos" }];
   const DEFAULT_BRAND = {
     nome: "Copplasa",
-    portalNome: "Portal Copplasa",
-    slogan: "seu par em seguros e benefícios",
-    logo: "assets/marca/logo.svg",
-    logoClaro: "assets/marca/logo-branco.svg",
     icone: "assets/marca/icone.png",
     cores: { principal: "#006CD1", secundaria: "#00D1CE", destaque: "#D1006C", texto: "#4D4D4D", fundo: "#FFFFFF", fundoSuave: "#E6F0FA", rodape: "#4D4D4D" },
     fontes: { titulos: "EB Garamond", texto: "Lato" },
@@ -134,13 +154,37 @@
     formato: "pilula",
     // Capa: a tela de login, configurada à parte do site interno
     capa: {
-      titulo: "Portal Copplasa",
-      texto: "Comunicados, relatórios e canais de atendimento para clientes, parceiros e equipe Copplasa.",
-      instrucao: "Use o e-mail e a senha que a Copplasa cadastrou para você.",
-      logo: "assets/marca/logo-branco.svg",
+      logo: { imagem: "assets/marca/logo-branco.svg", tamanho: 240, mostrar: true },
+      titulo: { texto: "Portal Copplasa", fonte: "", tamanho: 54, cor: "" },
+      texto: { texto: "Comunicados, relatórios e canais de atendimento para clientes, parceiros e equipe Copplasa.", fonte: "", tamanho: 17, cor: "" },
+      formTitulo: { texto: "Entrar", fonte: "", tamanho: 35, cor: "" },
+      instrucao: { texto: "Use o e-mail e a senha que a Copplasa cadastrou para você.", fonte: "", tamanho: 16, cor: "" },
       fundo: "#006CD1",
       imagem: "",
-      veu: 60
+      veu: 60,
+      formFundo: "#FFFFFF",
+      botao: "#006CD1"
+    },
+    // Site interno: o que aparece depois do login
+    interno: {
+      logo: { imagem: "assets/marca/logo.svg", tamanho: 44, mostrar: true },
+      slogan: { texto: "seu par em seguros e benefícios", fonte: "", tamanho: 18, cor: "" },
+      titulo: { texto: "Portal Copplasa", fonte: "", tamanho: 64, cor: "" },
+      apresentacao: { fonte: "", tamanho: 17, cor: "" },
+      menu: { fonte: "", tamanho: 16, cor: "" },
+      secoes: { fonte: "", tamanho: 40, cor: "" },
+      subtitulos: { fonte: "", tamanho: 16, cor: "" },
+      textos: { fonte: "", tamanho: 16 },
+      rodapeLogo: { imagem: "assets/marca/logo-branco.svg", tamanho: 170, mostrar: true },
+      secoesTextos: {
+        relatorios: "Relatórios",
+        relatoriosEquipe: "Relatórios internos da equipe e relatórios liberados para grupos.",
+        relatoriosClientes: "Relatórios liberados para você.",
+        avisos: "Avisos",
+        avisosSub: "Comunicados para clientes, parceiros e equipe.",
+        contatos: "Contatos",
+        contatosSub: "Fale com a Copplasa."
+      }
     },
     empresa: {
       descricao: "Mais do que uma consultoria: uma parceira estratégica em benefícios e seguros, cuidando do que realmente importa: as pessoas.",
@@ -189,6 +233,16 @@
     return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
   }
   const onColor = (hex) => (contrast(hex, "#FFFFFF") >= contrast(hex, "#1A1A1A") ? "#FFFFFF" : "#1A1A1A");
+  // k é um caminho dentro da marca, como "capa.titulo" ou "interno.logo.imagem"
+  const getPath = (o, k) => k.split(".").reduce((v, p) => (v == null ? v : v[p]), o);
+  function setPath(o, k, v) {
+    const ps = k.split(".");
+    const last = ps.pop();
+    ps.reduce((x, p) => x[p], o)[last] = v;
+  }
+  const cssName = (k) => "--p-" + k.replace(/\./g, "-");
+  const limita = (v, min, max, padrao) => { const n = Math.round(Number(v)); return isFinite(n) ? Math.min(max, Math.max(min, n)) : padrao; };
+  const fontStack = (n) => '"' + n + '", ' + (SERIF_FONTS.indexOf(n) >= 0 ? 'Georgia, "Times New Roman", serif' : '"Segoe UI", system-ui, -apple-system, sans-serif');
   function deepMerge(base, over) {
     const out = clone(base);
     if (!over || typeof over !== "object" || Array.isArray(over)) return out;
@@ -201,35 +255,60 @@
     });
     return out;
   }
+  // Converte aparências publicadas por versões anteriores do portal, sem mudar o que aparece na tela
+  function migrateBrand(raw) {
+    const r = raw && typeof raw === "object" && !Array.isArray(raw) ? clone(raw) : {};
+    const cores = r.cores && typeof r.cores === "object" ? r.cores : {};
+    const txt = (v) => (typeof v === "string" ? { texto: v } : undefined);
+    const img = (v) => (typeof v === "string" ? { imagem: v } : undefined);
+    // Antes das partes, o nome do portal, o slogan e os logos ficavam no primeiro nível
+    if (!r.interno || typeof r.interno !== "object") {
+      r.interno = { titulo: txt(r.portalNome), slogan: txt(r.slogan), logo: img(r.logo), rodapeLogo: img(r.logoClaro) };
+    }
+    const c = r.capa && typeof r.capa === "object" ? r.capa : null;
+    if (!c) {
+      // Sem capa própria, a tela de login repetia o nome do portal, o logo branco e as cores do site
+      r.capa = { titulo: txt(r.portalNome), texto: txt(r.loginTexto), logo: img(r.logoClaro), fundo: cores.principal, botao: cores.principal, formFundo: cores.fundo };
+    } else if (["titulo", "texto", "instrucao", "logo"].some((k) => typeof c[k] === "string")) {
+      // Primeira versão da capa: só textos, sem fonte, tamanho ou cor por parte
+      r.capa = { titulo: txt(c.titulo), texto: txt(c.texto), instrucao: txt(c.instrucao), logo: img(c.logo), fundo: c.fundo, imagem: c.imagem, veu: c.veu, botao: cores.principal, formFundo: cores.fundo };
+    }
+    return r;
+  }
   function cleanBrand(raw) {
-    const b = deepMerge(DEFAULT_BRAND, raw);
+    const b = deepMerge(DEFAULT_BRAND, migrateBrand(raw));
     COLOR_KEYS.forEach(({ k }) => { if (!isHex(b.cores[k])) b.cores[k] = DEFAULT_BRAND.cores[k]; });
     if (FONTS_TITULOS.indexOf(b.fontes.titulos) < 0) b.fontes.titulos = DEFAULT_BRAND.fontes.titulos;
     if (FONTS_TEXTO.indexOf(b.fontes.texto) < 0) b.fontes.texto = DEFAULT_BRAND.fontes.texto;
     if (!FORMATOS[b.formato]) b.formato = DEFAULT_BRAND.formato;
-    ["logo", "logoClaro", "icone"].forEach((k) => { if (!safeImg(b[k])) b[k] = DEFAULT_BRAND[k]; });
-    // Aparência publicada antes de a capa ter configuração própria: a capa continua como era
-    if (!raw || !raw.capa || typeof raw.capa !== "object") {
-      b.capa.titulo = b.portalNome;
-      if (raw && typeof raw.loginTexto === "string") b.capa.texto = raw.loginTexto;
-      b.capa.logo = b.logoClaro;
-      b.capa.fundo = b.cores.principal;
-    }
-    if (!isHex(b.capa.fundo)) b.capa.fundo = b.cores.principal;
-    if (!safeImg(b.capa.logo)) b.capa.logo = DEFAULT_BRAND.capa.logo;
-    if (!safeImg(b.capa.imagem)) b.capa.imagem = "";
-    b.capa.veu = Math.min(90, Math.max(0, Math.round(b.capa.veu) || 0));
+    if (!safeImg(b.icone)) b.icone = DEFAULT_BRAND.icone;
+    Object.keys(PARTES).forEach((k) => {
+      const p = getPath(b, k), padrao = getPath(DEFAULT_BRAND, k);
+      if (FONTS_ALL.indexOf(p.fonte) < 0) p.fonte = "";
+      if ("cor" in padrao && !isHex(p.cor)) p.cor = "";
+      p.tamanho = limita(p.tamanho, PARTES[k].min, PARTES[k].max, padrao.tamanho);
+    });
+    Object.keys(LOGOS).forEach((k) => {
+      const l = getPath(b, k), padrao = getPath(DEFAULT_BRAND, k);
+      if (!safeImg(l.imagem)) l.imagem = padrao.imagem;
+      l.tamanho = limita(l.tamanho, LOGOS[k].min, LOGOS[k].max, padrao.tamanho);
+    });
+    const c = b.capa;
+    ["fundo", "botao", "formFundo"].forEach((k) => { if (!isHex(c[k])) c[k] = DEFAULT_BRAND.capa[k]; });
+    if (!safeImg(c.imagem)) c.imagem = "";
+    c.veu = limita(c.veu, 0, 90, DEFAULT_BRAND.capa.veu);
     b.empresa.unidades = b.empresa.unidades.filter((u) => u && typeof u === "object");
     b.empresa.links = b.empresa.links.filter((l) => l && typeof l === "object");
     return b;
   }
-  function fontHref(titulos, texto) {
-    const fam = (n) => "family=" + n.replace(/ /g, "+") + ":" + FONT_SPEC[n];
-    const fams = titulos === texto ? [fam(titulos)] : [fam(titulos), fam(texto)];
-    return "https://fonts.googleapis.com/css2?" + fams.join("&") + "&display=swap";
+  function fontHref(nomes) {
+    const fams = nomes.filter((n, i) => n && FONT_SPEC[n] && nomes.indexOf(n) === i);
+    return "https://fonts.googleapis.com/css2?" + fams.map((n) => "family=" + n.replace(/ /g, "+") + ":" + FONT_SPEC[n]).join("&") + "&display=swap";
   }
+  let appliedBrand = null;
   function applyBrand(raw) {
     const b = cleanBrand(raw);
+    appliedBrand = b;
     const st = document.documentElement.style;
     const c = b.cores;
     st.setProperty("--c-principal", c.principal);
@@ -241,17 +320,28 @@
     st.setProperty("--c-rodape", c.rodape);
     st.setProperty("--c-sobre-principal", onColor(c.principal));
     st.setProperty("--c-sobre-rodape", onColor(c.rodape));
-    st.setProperty("--font-display", '"' + b.fontes.titulos + '", ' + (SERIF_FONTS.indexOf(b.fontes.titulos) >= 0 ? 'Georgia, "Times New Roman", serif' : '"Segoe UI", system-ui, sans-serif'));
-    st.setProperty("--font-body", '"' + b.fontes.texto + '", "Segoe UI", system-ui, -apple-system, sans-serif');
+    st.setProperty("--font-display", fontStack(b.fontes.titulos));
+    st.setProperty("--font-body", fontStack(b.fontes.texto));
     const f = FORMATOS[b.formato];
     st.setProperty("--radius-btn", f.btn);
     st.setProperty("--radius-card", f.card);
     st.setProperty("--radius-field", f.field);
     st.setProperty("--title-transform", b.titulosMinusculos ? "lowercase" : "none");
-    const href = fontHref(b.fontes.titulos, b.fontes.texto);
+    // Cada parte: tamanho sempre; fonte e cor só quando escolhidas (senão vale o padrão do CSS)
+    Object.keys(PARTES).forEach((k) => {
+      const p = getPath(b, k), v = cssName(k);
+      st.setProperty(v + "-tam", p.tamanho + "px");
+      if (p.fonte) st.setProperty(v + "-fonte", fontStack(p.fonte)); else st.removeProperty(v + "-fonte");
+      if (p.cor) st.setProperty(v + "-cor", p.cor); else st.removeProperty(v + "-cor");
+    });
+    Object.keys(LOGOS).forEach((k) => st.setProperty(cssName(k) + "-tam", getPath(b, k).tamanho + "px"));
+    const href = fontHref([b.fontes.titulos, b.fontes.texto].concat(Object.keys(PARTES).map((k) => getPath(b, k).fonte)));
     const link = $("#brand-fonts");
     if (link.getAttribute("href") !== href) link.setAttribute("href", href);
-    document.querySelectorAll('[data-logo="cor"]').forEach((img) => { img.src = b.logo; img.alt = b.nome; });
+    const alt = b.nome || "Logo";
+    [["capa", b.capa.logo], ["interno", b.interno.logo]].forEach(([k, l]) => {
+      document.querySelectorAll('[data-logo="' + k + '"]').forEach((img) => { img.src = l.imagem; img.alt = alt; img.hidden = !l.mostrar; });
+    });
     const capa = b.capa;
     const sobreCapa = onColor(capa.fundo);
     st.setProperty("--capa-fundo", capa.fundo);
@@ -259,14 +349,27 @@
     st.setProperty("--capa-imagem", capa.imagem ? "url(" + JSON.stringify(new URL(capa.imagem, document.baseURI).href) + ")" : "none");
     st.setProperty("--capa-veu", (capa.imagem ? capa.veu : 100) + "%");
     st.setProperty("--capa-sombra", !capa.imagem ? "none" : sobreCapa === "#FFFFFF" ? "0 1px 14px rgba(0, 0, 0, .45)" : "0 1px 14px rgba(255, 255, 255, .6)");
-    document.querySelectorAll('[data-logo="capa"]').forEach((img) => { img.src = capa.logo; img.alt = b.nome; });
-    document.querySelectorAll("[data-capa]").forEach((el) => { el.textContent = capa[el.dataset.capa] || ""; });
+    st.setProperty("--capa-botao", capa.botao);
+    st.setProperty("--capa-botao-sobre", onColor(capa.botao));
+    st.setProperty("--capa-form-fundo", capa.formFundo);
+    st.setProperty("--capa-form-texto", formTextColor(b));
+    document.querySelectorAll("[data-capa]").forEach((el) => { el.textContent = (capa[el.dataset.capa] || {}).texto || ""; });
+    const int = b.interno;
+    document.querySelectorAll("[data-interno]").forEach((el) => { el.textContent = (int[el.dataset.interno] || {}).texto || ""; });
+    document.querySelectorAll("[data-secao]").forEach((el) => { el.textContent = int.secoesTextos[el.dataset.secao] || ""; });
+    document.querySelectorAll("[data-nav]").forEach((el) => {
+      el.textContent = int.secoesTextos[el.dataset.nav] || (SECOES.find((s) => s.k === el.dataset.nav) || {}).nome || "";
+    });
+    relSubText();
     $("#brand-icon").setAttribute("href", b.icone);
-    document.querySelectorAll("[data-brand]").forEach((el) => { el.textContent = b[el.dataset.brand] || ""; });
     const theme = document.querySelector('meta[name="theme-color"]');
     if (theme) theme.setAttribute("content", c.principal);
-    document.title = b.portalNome || b.nome;
+    document.title = int.titulo.texto || b.nome || "Portal";
     renderFooter(b);
+  }
+  function relSubText() {
+    const t = (appliedBrand || brand).interno.secoesTextos;
+    $("#rel-sub").textContent = isEquipe ? t.relatoriosEquipe : t.relatoriosClientes;
   }
   function renderFooter(b) {
     const e = b.empresa;
@@ -277,7 +380,7 @@
     }).join("");
     const units = e.unidades.filter((u) => u.nome || u.endereco).map((u) => {
       const m = safeUrl(u.mapa);
-      return '<p class="foot-unit"><strong>' + esc(u.nome) + "</strong>" + (m ? ext(m, esc(u.endereco)) : esc(u.endereco)) + "</p>";
+      return '<p class="foot-unit">' + (u.nome ? "<strong>" + esc(u.nome) + "</strong>" : "") + (m ? ext(m, esc(u.endereco || "Ver no mapa")) : esc(u.endereco)) + "</p>";
     }).join("");
     const contacts = [];
     if (/^\S+@\S+\.\S+$/.test(e.email || "")) contacts.push('<li><a href="mailto:' + esc(e.email) + '">' + esc(e.email) + "</a></li>");
@@ -287,15 +390,17 @@
     if (wa.length >= 10) contacts.push("<li>" + ext("https://wa.me/" + (wa.length <= 11 ? "55" + wa : wa), "WhatsApp " + esc(e.whatsapp)) + "</li>");
     const site = safeUrl(e.site);
     if (site) contacts.push("<li>" + ext(site, esc(hostOf(site))) + "</li>");
-    const links = e.links.map((l) => { const u = safeUrl(l.url); return u && l.titulo ? "<li>" + ext(u, esc(l.titulo)) + "</li>" : ""; }).join("");
+    // Link sem título mostra o endereço do site
+    const links = e.links.map((l) => { const u = safeUrl(l.url); return u ? "<li>" + ext(u, esc(String(l.titulo || "").trim() || hostOf(u))) + "</li>" : ""; }).join("");
+    const rl = b.interno.rodapeLogo;
     $("#site-footer").innerHTML = '<div class="wrap foot-grid">' +
-      '<div><img class="foot-logo" src="' + esc(b.logoClaro) + '" alt="' + esc(b.nome) + '">' +
+      "<div>" + (rl.mostrar ? '<img class="foot-logo" src="' + esc(rl.imagem) + '" alt="' + esc(b.nome || "Logo") + '">' : "") +
         (e.descricao ? '<p class="foot-desc">' + esc(e.descricao) + "</p>" : "") +
         (socials ? '<div class="socials">' + socials + "</div>" : "") + "</div>" +
       (units ? "<div><h4>Unidades</h4>" + units + "</div>" : "") +
       (contacts.length ? "<div><h4>Contato</h4><ul>" + contacts.join("") + "</ul></div>" : "") +
       (links ? "<div><h4>Links</h4><ul>" + links + "</ul></div>" : "") +
-      '</div><div class="wrap foot-bottom"><p>© ' + new Date().getFullYear() + " " + esc(b.nome) + " | todos os direitos reservados</p>" +
+      '</div><div class="wrap foot-bottom"><p>© ' + new Date().getFullYear() + (b.nome ? " " + esc(b.nome) : "") + " | todos os direitos reservados</p>" +
       "<p>Acesso restrito a pessoas cadastradas. Não envie CPF, dados de saúde, apólices ou sinistros por este portal.</p></div>";
   }
   function readBrandCache() { try { const s = localStorage.getItem(BRAND_CACHE_KEY); return s ? JSON.parse(s) : null; } catch (_) { return null; } }
@@ -380,30 +485,37 @@
 
   // ---------- Página ----------
   const EX = '<span class="chip" title="Conteúdo de exemplo. Revise antes de usar.">Exemplo</span>';
-  function head(id, title, sub) {
-    return '<div class="sec-head"><h2 id="h-' + id + '">' + esc(title) + "</h2>" + (sub ? '<p class="sec-sub">' + esc(sub) + "</p>" : "") + "</div>";
+  // Título e subtítulo vêm da aparência (Site interno > Títulos e subtítulos das seções); vazio não aparece
+  function head(id) {
+    const t = (appliedBrand || brand).interno.secoesTextos;
+    return '<div class="sec-head"><h2 id="h-' + id + '" data-secao="' + id + '">' + esc(t[id]) + "</h2>" +
+      '<p class="sec-sub" data-secao="' + id + 'Sub">' + esc(t[id + "Sub"]) + "</p></div>";
   }
   function band(id, soft, inner) {
     return '<section class="band' + (soft ? " band-soft" : "") + '" id="' + id + '" aria-labelledby="h-' + id + '"><div class="wrap">' + inner + "</div></section>";
   }
   function secAvisos(d) {
-    const items = d.avisos.slice().sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+    // Nenhum campo é obrigatório: aviso sem título mostra só o texto; aviso vazio não aparece
+    const items = d.avisos.filter((a) => String(a.titulo || "").trim() || String(a.texto || "").trim())
+      .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
     const body = items.length
       ? '<div class="avisos">' + items.map((a) =>
-          '<article class="aviso"><div class="aviso-date">' + esc(fmtDate(a.data)) + '</div><div class="aviso-body"><h3>' +
-          "<span>" + esc(a.titulo) + "</span>" + (a.exemplo ? EX : "") + "</h3>" + paras(a.texto) + "</div></article>").join("") + "</div>"
+          '<article class="aviso"><div class="aviso-date">' + esc(fmtDate(a.data)) + '</div><div class="aviso-body">' +
+          (String(a.titulo || "").trim() || a.exemplo ? "<h3>" + (String(a.titulo || "").trim() ? "<span>" + esc(a.titulo) + "</span>" : "") + (a.exemplo ? EX : "") + "</h3>" : "") +
+          paras(a.texto) + "</div></article>").join("") + "</div>"
       : '<p class="empty">Nenhum aviso publicado no momento.</p>';
-    return band("avisos", false, head("avisos", "Avisos", "Comunicados para clientes, parceiros e equipe.") + body);
+    return band("avisos", false, head("avisos") + body);
   }
   function secContatos(d) {
-    const body = d.contatos.length
-      ? '<div class="contacts">' + d.contatos.map((c) =>
-          '<article class="contact"><h3><span>' + esc(c.area) + "</span>" + (c.exemplo ? EX : "") + "</h3>" +
+    const itens = d.contatos.filter((c) => String(c.area || "").trim() || String(c.canal || "").trim() || String(c.horario || "").trim());
+    const body = itens.length
+      ? '<div class="contacts">' + itens.map((c) =>
+          '<article class="contact">' + (String(c.area || "").trim() || c.exemplo ? "<h3>" + (String(c.area || "").trim() ? "<span>" + esc(c.area) + "</span>" : "") + (c.exemplo ? EX : "") + "</h3>" : "") +
           (c.canal ? '<div class="canal-row"><span class="canal">' + esc(c.canal) + "</span>" +
             (c.exemplo ? "" : '<button type="button" class="btn btn-ghost btn-sm" data-copy="' + esc(c.canal) + '">Copiar</button>') + "</div>" : "") +
           (c.horario ? '<p class="horario">' + esc(c.horario) + "</p>" : "") + "</article>").join("") + "</div>"
       : '<p class="empty">Nenhum contato cadastrado.</p>';
-    return band("contatos", true, head("contatos", "Contatos", "Fale com a Copplasa.") + body);
+    return band("contatos", true, head("contatos") + body);
   }
   function renderContent(d) {
     $("#lede").textContent = d.portal.boasVindas || "";
@@ -451,6 +563,7 @@
     reportCache.clear();
     clearStash();
     closeReport(true);
+    closeCapaPreview();
     hidePanels();
     if (brandDraft) { brandDraft = null; applyBrand(brand); }
     $("#open-editor").hidden = true;
@@ -535,7 +648,7 @@
     $("#rel-new").hidden = !(canEdit && !relSetupMissing);
     $("#open-access").hidden = !(canEdit && !relSetupMissing);
     if (!show) return;
-    $("#rel-sub").textContent = isEquipe ? "Relatórios internos da equipe e relatórios liberados para grupos." : "Relatórios liberados para você.";
+    relSubText();
     if (relSetupMissing) {
       $("#rel-list").innerHTML = '<p class="rel-hint">A área de relatórios ainda não foi ativada no banco de dados. Rode o arquivo <code>supabase/relatorios.sql</code> no SQL Editor do Supabase e recarregue a página.</p>';
       return;
@@ -1123,10 +1236,6 @@
       if (s.single) continue;
       for (let i = 0; i < d[s.key].length; i++) {
         const it = d[s.key][i];
-        if (!String(it[s.req] || "").trim()) {
-          const f = s.fields.find((x) => x.k === s.req);
-          return { tab: s.key, id: "ed-" + s.key + "-" + it.id + "-" + s.req, msg: 'Preencha o campo "' + f.label + '" em ' + s.label + ", item " + (i + 1) + "." };
-        }
         if (s.key === "links" && String(it.url || "").trim() && !safeUrl(it.url)) {
           return { tab: s.key, id: "ed-links-" + it.id + "-url", msg: "O endereço do link " + (i + 1) + " precisa começar com https://." };
         }
@@ -1382,6 +1491,7 @@
       return;
     }
     clearTimeout(brandCloseArmed); brandCloseArmed = 0;
+    closeCapaPreview();
     brandDraft = null;
     applyBrand(brand);
     $("#brand-panel").hidden = true;
@@ -1398,13 +1508,6 @@
       : "<input id=\"" + id + "\" " + attrs + ' value="' + esc(value) + '">';
     return '<div class="field"><label for="' + id + '">' + esc(label) + "</label>" + ctl + (hint ? '<p class="field-hint">' + esc(hint) + "</p>" : "") + "</div>";
   }
-  // k é o caminho do campo na marca, como "logo" ou "capa.imagem"
-  const getPath = (o, k) => k.split(".").reduce((v, p) => (v == null ? v : v[p]), o);
-  function setPath(o, k, v) {
-    const ps = k.split(".");
-    const last = ps.pop();
-    ps.reduce((x, p) => x[p], o)[last] = v;
-  }
   function logoField(k, label, hint, bg, resetLabel) {
     const src = safeImg(getPath(brandDraft, k)) || getPath(DEFAULT_BRAND, k);
     const reset = resetLabel || "Usar o logo do site da Copplasa";
@@ -1416,8 +1519,8 @@
   }
   // k é a cor dentro de "cores" (ex.: "principal") ou um caminho completo (ex.: "capa.fundo")
   function colorRow(k, nome, uso, valor) {
-    const padrao = getPath(DEFAULT_BRAND, k.indexOf(".") < 0 ? "cores." + k : k);
-    return '<div class="color-row"><input type="color" id="b-cor-' + k.replace(".", "-") + '" data-color="' + k + '" value="' + esc((isHex(valor) ? valor : padrao).toLowerCase()) + '" aria-label="Cor ' + esc(nome.toLowerCase()) + '">' +
+    const padrao = getPath(DEFAULT_BRAND, colorPath(k)) || "#000000";
+    return '<div class="color-row"><input type="color" id="b-cor-' + k.replace(/\./g, "-") + '" data-color="' + k + '" value="' + esc((isHex(valor) ? valor : padrao).toLowerCase()) + '" aria-label="Cor ' + esc(nome.toLowerCase()) + '">' +
       '<div class="color-name"><strong>' + esc(nome) + "</strong><span>" + esc(uso) + "</span></div>" +
       '<input type="text" data-color-hex="' + k + '" value="' + esc(valor) + '" maxlength="7" aria-label="Código da cor ' + esc(nome.toLowerCase()) + '">' +
       '<p class="color-warn" data-color-warn="' + k + '" hidden></p></div>';
@@ -1450,44 +1553,113 @@
       "</div>").join("") +
       '<button type="button" class="btn btn-ghost btn-sm ed-add" data-list-add="' + listKey + '">' + esc(addLabel) + "</button>";
   }
+  // ---- Blocos do painel: uma parte da capa ou do site interno em cada um, abertos ao clicar ----
+  const brandOpen = new Set(["capa.titulo", "interno.titulo"]);
+  function partBox(k, nome, body) {
+    return '<details class="part" data-part-box="' + k + '"' + (brandOpen.has(k) ? " open" : "") + ">" +
+      '<summary><span class="part-name">' + esc(nome) + '</span><span class="part-sum" data-part-resumo>' + esc(partResumo(k)) + "</span></summary>" +
+      '<div class="part-body">' + body + "</div></details>";
+  }
+  function partResumo(k) {
+    const b = brandDraft;
+    if (LOGOS[k]) { const l = getPath(b, k); return l.mostrar ? LOGOS[k].medida + " " + l.tamanho + " px" : "Não aparece"; }
+    if (PARTES[k]) {
+      const p = getPath(b, k);
+      if ("texto" in p && !String(p.texto).trim()) return "Não aparece";
+      return p.tamanho + " px · " + (p.fonte || "fonte padrão") + (p.cor ? " · cor própria" : "");
+    }
+    if (k === "capa.fundo") return (b.capa.imagem ? "Imagem e cor " : "Cor ") + b.capa.fundo;
+    if (k === "capa.form") return "Fundo " + b.capa.formFundo + " · botão " + b.capa.botao;
+    return "";
+  }
+  function sizeField(k, valor, min, max, rotulo) {
+    const id = "b-" + k.replace(/\./g, "-") + "-tam";
+    return '<div class="field"><label for="' + id + '">' + esc(rotulo) + " (px)</label>" +
+      '<div class="size-row"><input id="' + id + '" type="range" min="' + min + '" max="' + max + '" step="1" value="' + valor + '" data-part="' + k + '" data-f="tamanho">' +
+      '<input type="number" min="' + min + '" max="' + max + '" step="1" value="' + valor + '" data-part="' + k + '" data-f="tamanho" aria-label="' + esc(rotulo) + ' em px"></div>' +
+      '<p class="field-hint">De ' + min + " a " + max + " px.</p></div>";
+  }
+  function partCard(k, extra) {
+    const d = PARTES[k], p = getPath(brandDraft, k), padrao = getPath(DEFAULT_BRAND, k);
+    const id = "b-" + k.replace(/\./g, "-");
+    let h = "";
+    if ("texto" in padrao) {
+      const attrs = 'id="' + id + '-texto" maxlength="' + d.len + '" data-part="' + k + '" data-f="texto"';
+      h += '<div class="field"><label for="' + id + '-texto">Texto</label>' +
+        (d.linhas ? "<textarea " + attrs + ' rows="3">' + esc(p.texto) + "</textarea>" : '<input type="text" ' + attrs + ' value="' + esc(p.texto) + '">') +
+        '<p class="field-hint">Opcional: em branco, esta parte não aparece.</p></div>';
+    }
+    if (extra) h += extra;
+    if (d.nota) h += '<p class="ed-hint">' + esc(d.nota) + "</p>";
+    const fontePadrao = d.papel === "titulo" ? brandDraft.fontes.titulos : brandDraft.fontes.texto;
+    h += '<div class="field"><label for="' + id + '-fonte">Fonte</label><select id="' + id + '-fonte" data-part="' + k + '" data-f="fonte">' +
+      '<option value="">Padrão (' + esc(fontePadrao) + ")</option>" +
+      FONTS_ALL.map((n) => '<option value="' + esc(n) + '"' + (n === p.fonte ? " selected" : "") + ">" + esc(n) + "</option>").join("") + "</select></div>";
+    h += sizeField(k, p.tamanho, d.min, d.max, "Tamanho da fonte");
+    if ("cor" in padrao) {
+      h += '<div class="field"><label class="check"><input type="checkbox" data-cor-toggle="' + k + '"' + (p.cor ? " checked" : "") + "> Usar uma cor própria</label>" +
+        (p.cor ? colorRow(k + ".cor", "Cor", d.nome, p.cor) : '<p class="field-hint">Cor automática: ' + esc(d.autoNome) + ".</p>") + "</div>";
+    }
+    h += '<button type="button" class="btn btn-ghost btn-sm ed-add" data-part-reset="' + k + '">Restaurar esta parte</button>';
+    return partBox(k, d.nome, h);
+  }
+  function logoCard(k) {
+    const d = LOGOS[k], l = getPath(brandDraft, k);
+    return partBox(k, d.nome,
+      logoField(k + ".imagem", "Imagem", d.dica, d.bg, d.reset) +
+      '<label class="check"><input type="checkbox" data-part="' + k + '" data-f="mostrar"' + (l.mostrar ? " checked" : "") + "> Mostrar</label>" +
+      sizeField(k, l.tamanho, d.min, d.max, d.medida) +
+      '<button type="button" class="btn btn-ghost btn-sm ed-add" data-part-reset="' + k + '">Restaurar esta parte</button>');
+  }
+  const secField = (k, label) => inputField("b-sec-" + k, label, 'type="text" maxlength="160" data-sec="' + k + '"', brandDraft.interno.secoesTextos[k]);
+  function capaPreview() {
+    const c = brandDraft.capa;
+    return '<div class="capa-prev" aria-hidden="true">' +
+      '<div class="capa-preview"><img class="auth-logo" data-logo="capa" src="' + esc(c.logo.imagem) + '" alt=""' + (c.logo.mostrar ? "" : " hidden") + ">" +
+        '<p class="auth-title" data-capa="titulo">' + esc(c.titulo.texto) + '</p><p class="auth-lede" data-capa="texto">' + esc(c.texto.texto) + "</p></div>" +
+      '<div class="capa-form"><p class="cf-titulo" data-capa="formTitulo">' + esc(c.formTitulo.texto) + '</p><p class="cf-instrucao" data-capa="instrucao">' + esc(c.instrucao.texto) + "</p>" +
+        '<span class="btn btn-primary btn-block">Entrar</span></div></div>';
+  }
   function renderBrandBody() {
     const b = brandDraft;
     let html = "";
     if (brandTab === "capa") {
       const c = b.capa;
-      html = '<p class="ed-hint">A capa é a tela de login, que todos veem antes de entrar. O que você muda aqui não altera o site interno.</p>' +
-        '<div class="capa-preview" aria-hidden="true"><img data-logo="capa" src="' + esc(c.logo) + '" alt="">' +
-          '<strong data-capa="titulo">' + esc(c.titulo) + '</strong><span data-capa="texto">' + esc(c.texto) + "</span></div>" +
-        inputField("b-capa-titulo", "Título da capa", 'type="text" maxlength="80" data-c="titulo"', c.titulo) +
-        inputField("b-capa-texto", "Texto da capa", 'maxlength="300" data-c="texto"', c.texto, "", true) +
-        inputField("b-capa-instrucao", "Instrução do formulário de login", 'type="text" maxlength="160" data-c="instrucao"', c.instrucao, "Aparece abaixo de “Entrar”, ao lado dos campos de e-mail e senha.") +
-        '<p class="ed-section-title">Visual da capa</p>' +
-        logoField("capa.logo", "Logo da capa", "Fica sobre a cor ou a imagem de fundo: use uma versão do logo que apareça bem sobre elas.", "on-capa", "Usar o logo branco da Copplasa") +
-        colorRow("capa.fundo", "Cor de fundo", "Fundo da capa e cor aplicada sobre a imagem", c.fundo) +
-        logoField("capa.imagem", "Imagem de fundo (opcional)", "Uma foto ou ilustração, de preferência larga. É reduzida automaticamente.", "on-capa-img", "Remover imagem") +
-        (c.imagem
-          ? '<div class="field"><label for="b-capa-veu">Cor sobre a imagem: <span id="b-capa-veu-valor">' + c.veu + "%</span></label>" +
-            '<input id="b-capa-veu" type="range" min="0" max="90" step="5" value="' + c.veu + '" data-c="veu">' +
-            '<p class="field-hint">Quanto mais cor, mais fácil de ler o texto da capa e menos aparece a imagem.</p>' +
-            '<p class="color-warn" data-color-warn="capa.veu" hidden></p></div>'
-          : "") +
+      html = '<p class="ed-hint">A capa é a tela de login, que todos veem antes de entrar. Cada parte é configurada separadamente, e nada aqui altera o site interno. Clique numa parte para ver as opções.</p>' +
+        capaPreview() +
+        '<button type="button" class="btn btn-outline btn-sm ed-add" id="capa-ver">Ver a capa em tela cheia</button>' +
+        logoCard("capa.logo") + partCard("capa.titulo") + partCard("capa.texto") + partCard("capa.formTitulo") + partCard("capa.instrucao") +
+        partBox("capa.fundo", "Fundo da capa",
+          colorRow("capa.fundo", "Cor de fundo", "Fundo da capa e cor aplicada sobre a imagem", c.fundo) +
+          logoField("capa.imagem", "Imagem de fundo (opcional)", "Uma foto ou ilustração, de preferência larga. É reduzida automaticamente.", "on-capa-img", "Remover imagem") +
+          (c.imagem
+            ? '<div class="field"><label for="b-capa-veu">Cor sobre a imagem: <span id="b-capa-veu-valor">' + c.veu + "%</span></label>" +
+              '<input id="b-capa-veu" type="range" min="0" max="90" step="5" value="' + c.veu + '" data-c="veu">' +
+              '<p class="field-hint">Quanto mais cor, mais fácil de ler o texto da capa e menos aparece a imagem.</p>' +
+              '<p class="color-warn" data-color-warn="capa.veu" hidden></p></div>'
+            : "")) +
+        partBox("capa.form", "Cores do formulário",
+          colorRow("capa.formFundo", "Fundo do formulário", "Lado da tela com e-mail e senha", c.formFundo) +
+          colorRow("capa.botao", "Botão Entrar", "Também a cor do link Esqueci minha senha", c.botao)) +
         '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="capa">Restaurar a capa padrão da Copplasa</button>';
     } else if (brandTab === "marca") {
-      html = '<p class="ed-hint">O site interno é o que aparece depois do login. O título, o texto e o logo da tela de login ficam na aba Capa.</p>' +
-        inputField("b-nome", "Nome da empresa", 'type="text" maxlength="60" data-b="nome"', b.nome) +
-        inputField("b-portalNome", "Nome do portal", 'type="text" maxlength="60" data-b="portalNome"', b.portalNome, "Aparece no topo do site interno e na aba do navegador.") +
-        inputField("b-slogan", "Slogan", 'type="text" maxlength="120" data-b="slogan"', b.slogan) +
-        '<p class="ed-section-title">Logos</p>' +
-        logoField("logo", "Logo colorido", "Topo do site interno, sobre fundo branco. PNG, SVG, JPG ou WEBP.", "on-light") +
-        logoField("logoClaro", "Logo branco", "Rodapé, sobre a cor do rodapé.", "on-footer") +
-        logoField("icone", "Ícone da aba do navegador", "Imagem quadrada. É reduzida automaticamente.", "on-icon");
+      html = '<p class="ed-hint">O site interno é o que aparece depois do login. Cada parte é configurada separadamente, e as mudanças aparecem ao lado na hora. Clique numa parte para ver as opções.</p>' +
+        inputField("b-nome", "Nome da empresa", 'type="text" maxlength="60" data-b="nome"', b.nome, "Opcional. Aparece no rodapé e descreve os logos para leitores de tela.") +
+        logoCard("interno.logo") + partCard("interno.slogan") + partCard("interno.titulo") + partCard("interno.apresentacao") + partCard("interno.menu") +
+        partCard("interno.secoes", secField("relatorios", "Seção Relatórios") + secField("avisos", "Seção Avisos") + secField("contatos", "Seção Contatos") +
+          '<p class="field-hint">Opcional: título em branco não aparece.</p>') +
+        partCard("interno.subtitulos", secField("relatoriosEquipe", "Relatórios, para a equipe") + secField("relatoriosClientes", "Relatórios, para clientes e grupos") +
+          secField("avisosSub", "Avisos") + secField("contatosSub", "Contatos") + '<p class="field-hint">Opcional: subtítulo em branco não aparece.</p>') +
+        partCard("interno.textos") + logoCard("interno.rodapeLogo") +
+        partBox("icone", "Ícone da aba do navegador", logoField("icone", "Imagem", "Imagem quadrada. É reduzida automaticamente.", "on-icon")) +
+        '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="interno">Restaurar o site interno padrão da Copplasa</button>';
     } else if (brandTab === "cores") {
-      html = '<p class="ed-hint">Cores do site interno. A cor de fundo da capa fica na aba Capa.</p>' +
+      html = '<p class="ed-hint">Cores do site interno. As cores da capa ficam na aba Capa, e cada texto pode ter cor própria nas abas Capa e Site interno.</p>' +
         COLOR_KEYS.map(({ k, nome, uso }) => colorRow(k, nome, uso, b.cores[k])).join("") +
         '<button type="button" class="btn btn-ghost btn-sm ed-add" data-reset="cores">Restaurar as cores do site da Copplasa</button>';
     } else if (brandTab === "tipografia") {
       const opts = (list, v) => list.map((n) => '<option value="' + esc(n) + '"' + (n === v ? " selected" : "") + ">" + esc(n) + "</option>").join("");
-      html = '<p class="ed-hint">Valem para a capa e para o site interno.</p>' +
+      html = '<p class="ed-hint">Fontes padrão da capa e do site interno. Cada parte pode usar outra fonte e outro tamanho nas abas Capa e Site interno.</p>' +
         '<div class="field"><label for="b-font-titulos">Fonte dos títulos</label><select id="b-font-titulos" data-font="titulos">' + opts(FONTS_TITULOS, b.fontes.titulos) + "</select>" +
           '<p class="font-sample" style="font-family: var(--font-display); text-transform: var(--title-transform)">Gestão de benefícios e seguros</p></div>' +
         '<div class="field"><label for="b-font-texto">Fonte dos textos</label><select id="b-font-texto" data-font="texto">' + opts(FONTS_TEXTO, b.fontes.texto) + "</select>" +
@@ -1579,14 +1751,31 @@
     if (!brandDraft || !el.dataset) return;
     const d = el.dataset;
     if (d.b) brandDraft[d.b] = el.value;
-    else if (d.c) {
-      if (d.c === "veu") {
-        brandDraft.capa.veu = Number(el.value);
-        const v = $("#b-capa-veu-valor");
-        if (v) v.textContent = brandDraft.capa.veu + "%";
-        renderColorWarnings();
-      } else brandDraft.capa[d.c] = el.value;
-    }
+    else if (d.c === "veu") {
+      brandDraft.capa.veu = Number(el.value);
+      const v = $("#b-capa-veu-valor");
+      if (v) v.textContent = brandDraft.capa.veu + "%";
+      renderColorWarnings();
+    } else if (d.part) {
+      const alvo = getPath(brandDraft, d.part);
+      if (!alvo) return;
+      if (d.f === "mostrar") alvo.mostrar = el.checked;
+      else if (d.f === "tamanho") {
+        const def = PARTES[d.part] || LOGOS[d.part];
+        const n = Math.round(Number(el.value));
+        if (el.value === "" || !isFinite(n)) return;
+        // Digitando no campo de número, só aplica dentro do limite; ao sair do campo, ajusta ao limite
+        if (el.type === "number" && e.type === "input" && (n < def.min || n > def.max)) return;
+        alvo.tamanho = Math.min(def.max, Math.max(def.min, n));
+        document.querySelectorAll('#brand-body [data-part="' + d.part + '"][data-f="tamanho"]').forEach((x) => { if (x !== el || e.type === "change") x.value = alvo.tamanho; });
+      } else alvo[d.f] = el.value;
+    } else if (d.corToggle) {
+      if (e.type !== "change") return;
+      getPath(brandDraft, d.corToggle).cor = el.checked ? PARTES[d.corToggle].auto(cleanBrand(brandDraft)) : "";
+      renderBrandBody();
+      const t = $('#brand-body [data-cor-toggle="' + d.corToggle + '"]');
+      if (t) t.focus();
+    } else if (d.sec) brandDraft.interno.secoesTextos[d.sec] = el.value;
     else if (d.e) brandDraft.empresa[d.e] = el.value.trim() === "" ? "" : el.value;
     else if (d.r) brandDraft.empresa.redes[d.r] = el.value.trim();
     else if (d.list) {
@@ -1613,25 +1802,34 @@
     else if (el.name === "b-formato") brandDraft.formato = el.value;
     else if (d.logoInput) { if (e.type === "change") onLogoFile(el); return; }
     else return;
+    // Atualiza o resumo do bloco da parte (tamanho, fonte, se aparece)
+    const box = el.closest && el.closest("[data-part-box]");
+    const resumo = box && box.querySelector("[data-part-resumo]");
+    if (resumo) resumo.textContent = partResumo(box.dataset.partBox);
     brandChanged();
   }
   function validateBrand(b) {
     for (const { k, nome } of COLOR_KEYS) {
       if (!isHex(b.cores[k])) return { tab: "cores", id: null, msg: "O código da cor " + nome.toLowerCase() + " precisa estar no formato #RRGGBB, por exemplo #006CD1." };
     }
-    if (!isHex(b.capa.fundo)) return { tab: "capa", id: null, msg: "O código da cor de fundo da capa precisa estar no formato #RRGGBB, por exemplo #006CD1." };
-    if (!String(b.capa.titulo).trim()) return { tab: "capa", id: "b-capa-titulo", msg: "Preencha o título da capa." };
-    if (!String(b.nome).trim()) return { tab: "marca", id: "b-nome", msg: "Preencha o nome da empresa." };
-    if (!String(b.portalNome).trim()) return { tab: "marca", id: "b-portalNome", msg: "Preencha o nome do portal." };
+    // Nenhum texto é obrigatório: só cores e endereços precisam estar num formato válido
+    for (const [k, nome] of [["capa.fundo", "de fundo da capa"], ["capa.formFundo", "de fundo do formulário"], ["capa.botao", "do botão Entrar"]]) {
+      if (!isHex(getPath(b, k))) return { tab: "capa", id: null, part: k === "capa.fundo" ? k : "capa.form", msg: "O código da cor " + nome + " precisa estar no formato #RRGGBB, por exemplo #006CD1." };
+    }
+    for (const k of Object.keys(PARTES)) {
+      const cor = getPath(b, k).cor;
+      if (cor && !isHex(cor)) return { tab: k.indexOf("capa.") === 0 ? "capa" : "marca", id: null, part: k, msg: "A cor de “" + PARTES[k].nome + "” precisa estar no formato #RRGGBB, por exemplo #006CD1." };
+    }
     const e = b.empresa;
     if (e.email && !/^\S+@\S+\.\S+$/.test(e.email)) return { tab: "empresa", id: "b-e-email", msg: "O e-mail não parece válido." };
     const badUrl = (u) => u && !safeUrl(u);
     if (badUrl(e.site)) return { tab: "empresa", id: "b-e-site", msg: "O site precisa começar com https://." };
     for (const k of Object.keys(SOCIAL)) if (badUrl(e.redes[k])) return { tab: "empresa", id: "b-r-" + k, msg: "O link do " + SOCIAL[k].nome + " precisa começar com https://." };
     for (let i = 0; i < e.unidades.length; i++) if (badUrl(e.unidades[i].mapa)) return { tab: "empresa", id: "b-unidades-" + i + "-mapa", msg: "O link do mapa da unidade " + (i + 1) + " precisa começar com https://." };
+    // Link do rodapé: o título é opcional (sem título, aparece o endereço); linha vazia é ignorada
     for (let i = 0; i < e.links.length; i++) {
-      if (!String(e.links[i].titulo || "").trim()) return { tab: "empresa", id: "b-links-" + i + "-titulo", msg: "Dê um título ao link " + (i + 1) + " do rodapé." };
-      if (!safeUrl(e.links[i].url)) return { tab: "empresa", id: "b-links-" + i + "-url", msg: "O link " + (i + 1) + " do rodapé precisa começar com https://." };
+      const l = e.links[i];
+      if ((String(l.titulo || "").trim() || String(l.url || "").trim()) && !safeUrl(l.url)) return { tab: "empresa", id: "b-links-" + i + "-url", msg: "O link " + (i + 1) + " do rodapé precisa de um endereço começando com https://." };
     }
     if (JSON.stringify(b).length > 2 * 1024 * 1024) return { tab: b.capa.imagem ? "capa" : "marca", id: null, msg: "As imagens (logos e fundo da capa) estão grandes demais. Use imagens menores." };
     return null;
@@ -1640,6 +1838,7 @@
     if (!brandDirty() || brandBusy || brandSetupMissing) return;
     const problem = validateBrand(brandDraft);
     if (problem) {
+      if (problem.part) brandOpen.add(problem.part);
       brandTab = problem.tab; renderBrandTabs(); renderBrandBody();
       brandStatus(problem.msg, "err", true);
       const el = problem.id && document.getElementById(problem.id);
@@ -1683,19 +1882,55 @@
   $("#brand-body").addEventListener("change", onBrandInput);
   $("#brand-body").addEventListener("click", (e) => {
     if (!brandDraft) return;
-    const t = e.target.closest("[data-logo-reset], [data-list-add], [data-list-remove], [data-reset]");
+    if (e.target.closest("#capa-ver")) { openCapaPreview(); return; }
+    const t = e.target.closest("[data-logo-reset], [data-list-add], [data-list-remove], [data-reset], [data-part-reset]");
     if (!t) return;
     const d = t.dataset;
     if (d.logoReset) setPath(brandDraft, d.logoReset, getPath(DEFAULT_BRAND, d.logoReset));
+    else if (d.partReset) {
+      setPath(brandDraft, d.partReset, clone(getPath(DEFAULT_BRAND, d.partReset)));
+      // Os títulos e subtítulos das seções voltam junto com o estilo deles
+      const nomes = { "interno.secoes": ["relatorios", "avisos", "contatos"], "interno.subtitulos": ["relatoriosEquipe", "relatoriosClientes", "avisosSub", "contatosSub"] }[d.partReset] || [];
+      nomes.forEach((k) => { brandDraft.interno.secoesTextos[k] = DEFAULT_BRAND.interno.secoesTextos[k]; });
+    }
     else if (d.listAdd) brandDraft.empresa[d.listAdd].push(d.listAdd === "unidades" ? { nome: "", endereco: "", mapa: "" } : { titulo: "", url: "" });
     else if (d.listRemove) brandDraft.empresa[d.listRemove].splice(+d.idx, 1);
     else if (d.reset === "cores") brandDraft.cores = clone(DEFAULT_BRAND.cores);
     else if (d.reset === "tipografia") { brandDraft.fontes = clone(DEFAULT_BRAND.fontes); brandDraft.titulosMinusculos = DEFAULT_BRAND.titulosMinusculos; brandDraft.formato = DEFAULT_BRAND.formato; }
     else if (d.reset === "empresa") brandDraft.empresa = clone(DEFAULT_BRAND.empresa);
     else if (d.reset === "capa") brandDraft.capa = clone(DEFAULT_BRAND.capa);
+    else if (d.reset === "interno") brandDraft.interno = clone(DEFAULT_BRAND.interno);
     renderBrandBody();
     brandChanged();
   });
+  // Guarda quais blocos estão abertos, para continuarem abertos quando o painel é redesenhado
+  $("#brand-body").addEventListener("toggle", (e) => {
+    const k = e.target.dataset && e.target.dataset.partBox;
+    if (!k) return;
+    if (e.target.open) brandOpen.add(k); else brandOpen.delete(k);
+  }, true);
+  // Prévia da capa em tela cheia, sem sair do painel
+  function openCapaPreview() {
+    if (!brandDraft) return;
+    ["login", "forgot", "newpass", "setup"].forEach((f) => { $("#auth-" + f).hidden = f !== "login"; });
+    $("#auth-login").inert = true;
+    $("#view-auth").classList.add("auth-preview");
+    $("#view-auth").hidden = false;
+    $("#capa-preview-close").hidden = false;
+    $("#capa-preview-close").focus();
+  }
+  function closeCapaPreview() {
+    const v = $("#view-auth");
+    if (!v.classList.contains("auth-preview")) return false;
+    v.classList.remove("auth-preview");
+    v.hidden = true;
+    $("#auth-login").inert = false;
+    $("#capa-preview-close").hidden = true;
+    const b = $("#capa-ver");
+    if (b) b.focus();
+    return true;
+  }
+  $("#capa-preview-close").addEventListener("click", closeCapaPreview);
   let brandDiscardArmed = 0;
   $("#brand-discard").addEventListener("click", () => {
     const b = $("#brand-discard");
@@ -1749,6 +1984,7 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (closeCapaPreview()) return;
     if (!$("#viewer").hidden) closeReport(false);
     else if (!$("#editor").hidden) closeEditor();
     else if (!$("#brand-panel").hidden) closeBrandPanel(false);
